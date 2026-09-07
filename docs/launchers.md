@@ -34,6 +34,29 @@ the setup can be rerun safely to refresh the checkout path.
 - Stop attempts to terminate process trees and verify port release.
 - Shutdown handlers keep running on Ctrl+C to prevent orphan processes.
 
+### Dashboard Close app
+
+Restart through the updated launcher (without `--reload`) to enable Close app.
+The confirmation requires local access, API authentication when configured,
+an explicit confirmation payload/header and the current UI origin. Unmanaged
+or reload-mode servers fail closed rather than killing ports indiscriminately.
+Uvicorn drains active requests (10-second ASGI grace period) before its owned
+UI tree is stopped. Slow in-flight provider/worker work can take longer than
+an idle shutdown; the UI reports a request, not an unverified completed close.
+Tracker refresh runs off the event loop so it cannot block that request.
+
+Per-launch records under `data/runtime/stack-*.json` bind API/UI PIDs and
+creation times and retain observed descendants for orphan cleanup. The
+foreground launcher yields to managed cleanup rather than racing it. Failure
+is recorded and produces a nonzero server exit. Browser tabs are not forcibly
+closed; saved records stay on disk. Never kill unrelated processes by port.
+
+Acceptance: from `web`, run `npx playwright test --config playwright.advisory.config.ts`.
+This uses ports 18080/15173, refuses occupied ports, invokes the real foreground
+launcher and stores disposable databases under ignored `test_runtime`.
+The default browser suite excludes these mutating tests. No operator database
+is used. Test runtime artifacts are retained locally for diagnosis.
+
 ## Diagnostics
 - `clear status` reports health and running processes.
 - `clear doctor` validates deps, ports, and health checks.

@@ -16,6 +16,7 @@ from typing import Iterable, Optional
 
 import httpx
 import psutil
+from utils.stack_control import prepare_control, record_process, shutdown_requested
 
 from utils.launcher import (
     LOG_DIR,
@@ -339,7 +340,7 @@ def _install_shutdown_handlers(args: argparse.Namespace) -> None:
 
 
 def _start(args: argparse.Namespace) -> int:
-    global _STOPPING
+    global _STOPPING, _ACTIVE_ARGS
     _STOPPING = False
     ensure_runtime_dirs()
     if args.foreground:
@@ -363,17 +364,16 @@ def _start(args: argparse.Namespace) -> int:
             return 1
 
     if not (api_pid and process_alive(api_pid)):
-        api_cmd = [
-            sys.executable,
-            "-m",
-            "uvicorn",
-            "web_api.app:app",
-        ]
+        api_cmd = [sys.executable, "-m", "web_api.server"]
+        control_path = prepare_control(args.ui_port)
+        api_env = os.environ.copy()
+        api_env["CLEAR_STACK_CONTROL"] = str(control_path)
         if args.reload:
-            api_cmd.append("--reload")
+            api_cmd = [sys.executable, "-m", "uvicorn", "web_api.app:app", "--reload"]
         api_cmd.extend(["--port", str(args.api_port)])
-        api_proc = _spawn_process(api_cmd, detach=not args.foreground, log_path=API_LOG)
+        api_proc = _spawn_process(api_cmd, env=api_env, detach=not args.foreground, log_path=API_LOG)
         write_pid(API_PID, api_proc.pid)
+        record_process(control_path, "api", api_proc.pid)
 
         try:
             if not _wait_for_api(args.api_port):
@@ -383,7 +383,7 @@ def _start(args: argparse.Namespace) -> int:
             print("\n>> Startup interrupted before API was ready.")
             return _stop(args)
 
-    web_dir = Path("web")
+    web_dir = Path("web").resolve()
     if args.no_web or not web_dir.exists():
         print(">> API started.")
         if args.foreground:
@@ -417,9 +417,11 @@ def _start(args: argparse.Namespace) -> int:
         ui_cmd = [npm_path, "run", "dev", "--", "--host", "127.0.0.1", "--port", str(args.ui_port)]
         ui_proc = _spawn_process(ui_cmd, cwd=web_dir, env=ui_env, detach=not args.foreground, log_path=WEB_LOG)
         write_pid(WEB_PID, ui_proc.pid)
+        record_process(control_path, "web", ui_proc.pid)
         if not wait_for_port(args.ui_port, timeout=6.0):
             print(f">> Web UI failed to start on port {args.ui_port}. Check logs: {WEB_LOG}")
             return _stop(args)
+        record_process(control_path, "web", ui_proc.pid)
 
     print(f">> Web UI: http://127.0.0.1:{args.ui_port}")
     print(f">> API: http://127.0.0.1:{args.api_port}")
@@ -433,6 +435,13 @@ def _start(args: argparse.Namespace) -> int:
             while True:
                 safe_sleep(0.5)
                 if api_proc.poll() is not None or ui_proc.poll() is not None:
+                    if shutdown_requested(control_path):
+                        # The managed API owns app-requested cleanup. Do not kill
+                        # it while it drains work and finalizes its control record.
+                        if api_proc.poll() is None:
+                            continue
+                        _ACTIVE_ARGS = None
+                        return api_proc.returncode or 0
                     print(">> Detected process exit; shutting down stack.")
                     return _stop(args)
         except KeyboardInterrupt:

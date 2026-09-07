@@ -37,3 +37,17 @@ def test_us_holding_period_is_more_than_calendar_year():
     assert TaxEngine.is_long_term(date(2023, 3, 1), date(2024, 3, 2), "US", 365)
     assert not TaxEngine.is_long_term(date(2024, 2, 29), date(2025, 2, 28), "US", 365)
     assert TaxEngine.is_long_term(date(2024, 2, 29), date(2025, 3, 1), "US", 365)
+
+
+def test_held_benchmark_and_missing_holding_arithmetic_unit(monkeypatch):
+    from modules.client_mgr import data
+    # Isolated arithmetic only; this is not provider or route evidence.
+    close = pd.DataFrame({"Close": [100., 110., 99.]}, index=pd.date_range("2026-01-01", periods=3))
+    monkeypatch.setattr(data.yf, "download", lambda *args, **kwargs: close)
+    portfolio, benchmark, meta = data.get_portfolio_and_benchmark_returns({"SPY": 2}, "SPY", "1mo", "1d")
+    assert portfolio.tolist() == pytest.approx([.1, -.1])
+    assert portfolio.tolist() == benchmark.tolist()
+    assert "reconstruction" in meta
+    portfolio, _, reason = data.get_portfolio_and_benchmark_returns({"SPY": 2, "MISSING": 1}, "SPY", "1mo", "1d")
+    assert portfolio is None
+    assert "identity unavailable" in reason
