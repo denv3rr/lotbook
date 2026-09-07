@@ -382,229 +382,75 @@ class ValuationEngine:
     # -------------------------------
 
     def generate_aggregate_portfolio_history(
-        self,
-        enriched_data: dict,
-        holdings: dict,
-        interval: str = "1M",
+        self, enriched_data: dict, holdings: dict, interval: str = "1M",
         lot_map: Optional[Dict[str, List[Dict[str, Any]]]] = None,
     ) -> list[float]:
-        """
-        Builds aggregate portfolio history from available holding histories only.
-        """
-
-        if not enriched_data or not holdings:
-            return []
-
-        dates, values = self.generate_portfolio_history_series(
-            enriched_data=enriched_data,
-            holdings=holdings,
-            interval=interval,
-            lot_map=lot_map,
-        )
-        if values:
-            return values
-
-        histories: List[List[float]] = []
-        quantities: List[float] = []
-
-        for t, info in enriched_data.items():
-            hist = info.get("history", []) or []
-            if not hist:
-                continue
-            try:
-                qty = float(info.get("quantity", holdings.get(t, 0.0)) or 0.0)
-            except Exception:
-                qty = 0.0
-            histories.append([float(x) for x in hist if x is not None])
-            quantities.append(qty)
-
-        if not histories:
-            return []
-
-        min_len = min(len(h) for h in histories if h)
-        if min_len <= 0:
-            return []
-
-        out: List[float] = []
-        idx = 0
-        while idx < min_len:
-            total = 0.0
-            j = 0
-            while j < len(histories):
-                try:
-                    total += histories[j][idx] * quantities[j]
-                except Exception:
-                    pass
-                j += 1
-            out.append(total)
-            idx += 1
-
-        return out
+        return self.generate_portfolio_history_series(enriched_data, holdings, interval, lot_map)[1]
 
     def generate_portfolio_history_series(
-        self,
-        enriched_data: Dict[str, Any],
-        holdings: Dict[str, float],
-        interval: str = "1M",
-        lot_map: Optional[Dict[str, List[Dict[str, Any]]]] = None,
+        self, enriched_data: Dict[str, Any], holdings: Dict[str, float],
+        interval: str = "1M", lot_map: Optional[Dict[str, List[Dict[str, Any]]]] = None,
     ) -> Tuple[List[datetime], List[float]]:
+        """Complete-coverage values on shared observed timestamps.
+
+        Without lots this reconstructs current holdings, not actual historical
+        account performance. With lots it is a value series including purchases,
+        which must not be fed into a return model.
         """
-        Returns a (dates, values) series using actual history timestamps when available.
-        """
-        if not enriched_data or not holdings:
-            return [], []
+        import math
+        from datetime import timezone
 
-        lot_series = self._generate_lot_weighted_history_series(
-            enriched_data=enriched_data,
-            holdings=holdings,
-            lot_map=lot_map,
-        )
-        if lot_series[1]:
-            return lot_series
+        def timestamp(value):
+            parsed = self._parse_timestamp(value)
+            if parsed is not None and parsed.tzinfo is not None:
+                parsed = parsed.astimezone(timezone.utc).replace(tzinfo=None)
+            return parsed
 
-        # Fallback: index-aligned aggregation (no timestamp alignment).
-        histories: List[List[float]] = []
-        quantities: List[float] = []
-
-        for t, info in enriched_data.items():
-            hist = info.get("history", []) or []
-            if not hist:
-                continue
-            try:
-                qty = float(info.get("quantity", holdings.get(t, 0.0)) or 0.0)
-            except Exception:
-                qty = 0.0
-            histories.append([float(x) for x in hist if x is not None])
-            quantities.append(qty)
-
-        if not histories:
-            return [], []
-
-        min_len = min(len(h) for h in histories if h)
-        if min_len <= 0:
-            return [], []
-
-        out: List[float] = []
-        idx = 0
-        while idx < min_len:
-            total = 0.0
-            j = 0
-            while j < len(histories):
-                try:
-                    total += histories[j][idx] * quantities[j]
-                except Exception:
-                    pass
-                j += 1
-            out.append(total)
-            idx += 1
-
-        return [], out
-
-    def _generate_lot_weighted_history_series(
-        self,
-        enriched_data: Dict[str, Any],
-        holdings: Dict[str, float],
-        lot_map: Optional[Dict[str, List[Dict[str, Any]]]],
-    ) -> Tuple[List[datetime], List[float]]:
-        if not lot_map:
-            return [], []
-
-        series_by_ticker: Dict[str, Dict[datetime, float]] = {}
-        all_dates: set[datetime] = set()
-
-        for raw_ticker, info in enriched_data.items():
-            prices = info.get("history", []) or []
-            dates = info.get("history_dates", []) or []
-            if not prices or not dates or len(prices) != len(dates):
-                continue
-
-            parsed_dates: List[datetime] = []
-            for d in dates:
-                ts = self._parse_timestamp(d)
-                if ts is None:
-                    parsed_dates = []
-                    break
-                parsed_dates.append(ts)
-
-            if not parsed_dates or len(parsed_dates) != len(prices):
-                continue
-
-            ticker = self._normalize_ticker(raw_ticker)
-            series = {}
-            for ts, price in zip(parsed_dates, prices):
-                try:
-                    series[ts] = float(price or 0.0)
-                except Exception:
-                    series[ts] = 0.0
-            series_by_ticker[ticker] = series
-            all_dates.update(parsed_dates)
-
-        if not series_by_ticker or not all_dates:
-            return [], []
-
-        sorted_dates = sorted(all_dates)
-        earliest_date = sorted_dates[0]
-
-        lots_by_ticker: Dict[str, List[Tuple[datetime, float]]] = {}
-        for raw_ticker, lots in (lot_map or {}).items():
-            ticker = self._normalize_ticker(raw_ticker)
-            entries: List[Tuple[datetime, float]] = []
-            for lot in lots or []:
-                if not isinstance(lot, dict):
+        quantities: Dict[str, float] = {}
+        lots_by_ticker = {}
+        try:
+            for ticker, quantity in holdings.items():
+                key = self._normalize_ticker(ticker)
+                quantities[key] = quantities.get(key, 0.0) + float(quantity)
+            for ticker, lots in (lot_map or {}).items():
+                if not lots:
                     continue
-                try:
-                    qty = float(lot.get("qty", 0.0) or 0.0)
-                except Exception:
-                    qty = 0.0
-                ts = self._parse_timestamp(lot.get("timestamp"))
-                if ts is None:
-                    ts = earliest_date
-                entries.append((ts, qty))
-            if entries:
-                entries.sort(key=lambda x: x[0])
-                lots_by_ticker[ticker] = entries
-
-        holdings_map: Dict[str, float] = {}
-        for raw_ticker, qty in (holdings or {}).items():
-            ticker = self._normalize_ticker(raw_ticker)
+                entries = [(timestamp(lot.get("timestamp")), float(lot.get("qty", 0))) for lot in lots]
+                if any(ts is None or not math.isfinite(qty) for ts, qty in entries):
+                    return [], []
+                lots_by_ticker[self._normalize_ticker(ticker)] = entries
+            if any(not math.isfinite(qty) for qty in quantities.values()):
+                return [], []
+        except (TypeError, ValueError, AttributeError):
+            return [], []
+        required = {ticker for ticker, qty in quantities.items() if qty != 0} | set(lots_by_ticker)
+        if not required:
+            return [], []
+        normalized = {self._normalize_ticker(ticker): info for ticker, info in enriched_data.items()}
+        paths = {}
+        for ticker in required:
+            info = normalized.get(ticker, {})
+            prices, dates = info.get("history", []), info.get("history_dates", [])
+            if not prices or len(prices) != len(dates):
+                return [], []
             try:
-                holdings_map[ticker] = holdings_map.get(ticker, 0.0) + float(qty or 0.0)
-            except Exception:
-                holdings_map[ticker] = holdings_map.get(ticker, 0.0)
-
-        # Forward-fill prices per ticker to honor real timestamps
-        price_paths: Dict[str, List[Optional[float]]] = {}
-        for ticker, series in series_by_ticker.items():
-            last_price = None
-            path: List[Optional[float]] = []
-            for dt in sorted_dates:
-                if dt in series:
-                    last_price = series.get(dt, 0.0)
-                path.append(last_price)
-            price_paths[ticker] = path
-
-        out: List[float] = []
-        kept_dates: List[datetime] = []
-        for idx, dt in enumerate(sorted_dates):
-            total = 0.0
-            any_price = False
-            for ticker in series_by_ticker.keys():
-                price = price_paths.get(ticker, [None])[idx]
-                if price is None:
-                    continue
-                any_price = True
-                if ticker in lots_by_ticker:
-                    qty = 0.0
-                    for ts, q in lots_by_ticker[ticker]:
-                        if ts <= dt:
-                            qty += q
-                        else:
-                            break
-                else:
-                    qty = holdings_map.get(ticker, 0.0)
-                total += price * qty
-            if any_price:
-                out.append(total)
-                kept_dates.append(dt)
-
-        return kept_dates, out
+                pairs = [(timestamp(ts), float(price)) for ts, price in zip(dates, prices)]
+            except (ValueError, TypeError):
+                return [], []
+            if any(ts is None or not math.isfinite(price) or price <= 0 for ts, price in pairs):
+                return [], []
+            if len({ts for ts, _ in pairs}) != len(pairs):
+                return [], []
+            paths[ticker] = dict(pairs)
+        shared = sorted(set.intersection(*(set(path) for path in paths.values())))
+        values = []
+        for ts in shared:
+            amounts = []
+            for ticker in sorted(required):
+                qty = sum(quantity for acquired, quantity in lots_by_ticker[ticker] if acquired <= ts) if ticker in lots_by_ticker else quantities[ticker]
+                amounts.append(paths[ticker][ts] * qty)
+            value = math.fsum(amounts)
+            if not math.isfinite(value):
+                return [], []
+            values.append(value)
+        return shared, values

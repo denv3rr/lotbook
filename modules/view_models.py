@@ -281,6 +281,9 @@ def portfolio_dashboard(client: Client, interval: str = "1M") -> Dict[str, Any]:
         warnings.append("No holdings available for valuation.")
 
     manual_total, manual_holdings = valuation.calculate_manual_holdings_value(manual_entries)
+    manual_compatible = all(entry.get("currency", "USD").upper() == "USD" for entry in manual_holdings)
+    if not manual_compatible:
+        warnings.append("Combined valuation unavailable: non-USD manual assets require reviewed FX conversion. Native amounts remain in the holdings list.")
     history_dates, history_values = valuation.generate_portfolio_history_series(
         enriched_data=enriched,
         holdings=holdings,
@@ -302,9 +305,8 @@ def portfolio_dashboard(client: Client, interval: str = "1M") -> Dict[str, Any]:
         label=_client_label(client),
         scope="Portfolio",
     )
-    regime_payload["window"] = _regime_window_payload(
-        history_dates, history_values, interval
-    )
+    # The regime payload carries its own fixed-holdings calculation window.
+
 
     holdings_list = sorted(
         enriched.values(),
@@ -338,8 +340,8 @@ def portfolio_dashboard(client: Client, interval: str = "1M") -> Dict[str, Any]:
         "interval": interval,
         "totals": {
             "market_value": float(total_value),
-            "manual_value": float(manual_total),
-            "total_value": float(total_value + manual_total),
+            "manual_value": float(manual_total) if manual_compatible else None,
+            "total_value": float(total_value + manual_total) if manual_compatible else None,
             "holdings_count": len(holdings),
             "manual_count": len(manual_holdings),
         },
@@ -397,6 +399,9 @@ def account_dashboard(client: Client, account: Account, interval: str = "1M") ->
         warnings.append("No holdings available for valuation.")
 
     manual_total, manual_holdings = valuation.calculate_manual_holdings_value(_account_manual_holdings(account) or [])
+    manual_compatible = all(entry.get("currency", "USD").upper() == "USD" for entry in manual_holdings)
+    if not manual_compatible:
+        warnings.append("Combined valuation unavailable: non-USD manual assets require reviewed FX conversion. Native amounts remain in the holdings list.")
     history_dates, history_values = valuation.generate_portfolio_history_series(
         enriched_data=enriched,
         holdings=holdings,
@@ -418,9 +423,8 @@ def account_dashboard(client: Client, account: Account, interval: str = "1M") ->
         label=_account_label(account),
         scope="Account",
     )
-    regime_payload["window"] = _regime_window_payload(
-        history_dates, history_values, interval
-    )
+    # The regime payload carries its own fixed-holdings calculation window.
+
 
     holdings_list = sorted(
         enriched.values(),
@@ -455,8 +459,8 @@ def account_dashboard(client: Client, account: Account, interval: str = "1M") ->
         "interval": interval,
         "totals": {
             "market_value": float(total_value),
-            "manual_value": float(manual_total),
-            "total_value": float(total_value + manual_total),
+            "manual_value": float(manual_total) if manual_compatible else None,
+            "total_value": float(total_value + manual_total) if manual_compatible else None,
             "holdings_count": _holdings_count(_account_holdings(account)),
             "manual_count": len(manual_holdings),
         },

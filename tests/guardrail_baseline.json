@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "count": 205,
+  "count": 198,
   "findings": [
     {
       "id": "bare_except:interfaces/settings.py:77a003da5dab",
@@ -449,46 +449,6 @@
       "line": 354,
       "detail": "except Exception:",
       "occurrence": 6
-    },
-    {
-      "id": "logged_broad_except:modules/client_mgr/valuation.py:ec735de18a2e",
-      "rule": "logged_broad_except",
-      "path": "modules/client_mgr/valuation.py",
-      "line": 416,
-      "detail": "except Exception:",
-      "occurrence": 7
-    },
-    {
-      "id": "logged_broad_except:modules/client_mgr/valuation.py:e72ff35ae0a3",
-      "rule": "logged_broad_except",
-      "path": "modules/client_mgr/valuation.py",
-      "line": 475,
-      "detail": "except Exception:",
-      "occurrence": 8
-    },
-    {
-      "id": "logged_broad_except:modules/client_mgr/valuation.py:c80339a3079b",
-      "rule": "logged_broad_except",
-      "path": "modules/client_mgr/valuation.py",
-      "line": 537,
-      "detail": "except Exception:",
-      "occurrence": 9
-    },
-    {
-      "id": "logged_broad_except:modules/client_mgr/valuation.py:35f5cd57cc8a",
-      "rule": "logged_broad_except",
-      "path": "modules/client_mgr/valuation.py",
-      "line": 557,
-      "detail": "except Exception:",
-      "occurrence": 10
-    },
-    {
-      "id": "logged_broad_except:modules/client_mgr/valuation.py:5810f5241ba7",
-      "rule": "logged_broad_except",
-      "path": "modules/client_mgr/valuation.py",
-      "line": 572,
-      "detail": "except Exception:",
-      "occurrence": 11
     },
     {
       "id": "logged_broad_except:modules/client_store.py:d378c5b77182",
@@ -1497,22 +1457,6 @@
       "line": 129,
       "detail": "except Exception:",
       "occurrence": 2
-    },
-    {
-      "id": "silent_except:modules/client_mgr/valuation.py:2cc035dce82c",
-      "rule": "silent_except",
-      "path": "modules/client_mgr/valuation.py",
-      "line": 436,
-      "detail": "except Exception:",
-      "occurrence": 3
-    },
-    {
-      "id": "silent_except:modules/client_mgr/valuation.py:3b1da40fe15c",
-      "rule": "silent_except",
-      "path": "modules/client_mgr/valuation.py",
-      "line": 495,
-      "detail": "except Exception:",
-      "occurrence": 4
     },
     {
       "id": "silent_except:modules/market_data/feed.py:f483e6813634",

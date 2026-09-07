@@ -272,10 +272,14 @@ class FinancialToolkit(ToolkitPayloadsMixin, ToolkitRunMixin, ToolkitMenuMixin):
             else:
                 return None, None, "Close price not available"
         else:
-            close = df.get("Close") or df.get("Adj Close")
+            close = df["Close"] if "Close" in df else df.get("Adj Close")
             if close is None:
                 return None, None, "Close price not available"
 
+        if isinstance(close, pd.Series):
+            if len(download_list) != 1:
+                return None, None, "Ticker-labelled close prices required"
+            close = close.to_frame(download_list[0])
         bench = str(benchmark_ticker).upper()
         if bench not in close.columns:
             return None, None, f"Benchmark '{bench}' missing"
@@ -283,16 +287,18 @@ class FinancialToolkit(ToolkitPayloadsMixin, ToolkitRunMixin, ToolkitMenuMixin):
         port_val = None
         for t, qty in holdings.items():
             t_norm = str(t).upper()
-            if t_norm == bench or t_norm not in close.columns:
+            if not float(qty):
                 continue
+            if t_norm not in close.columns:
+                return None, None, f"Holding '{t_norm}' missing price history"
             series = close[t_norm] * float(qty)
             port_val = series if port_val is None else (port_val + series)
 
         if port_val is None:
             return None, None, "No overlapping price series"
 
-        port_ret = port_val.pct_change().dropna()
-        bench_ret = close[bench].pct_change().dropna()
+        port_ret = port_val.pct_change(fill_method=None).dropna()
+        bench_ret = close[bench].pct_change(fill_method=None).dropna()
         meta = f"Period: {period} | Interval: {interval} | Points: {len(port_ret)}"
         return port_ret, bench_ret, meta
 
@@ -372,22 +378,29 @@ class FinancialToolkit(ToolkitPayloadsMixin, ToolkitRunMixin, ToolkitMenuMixin):
                     _CAPM_CACHE[key] = {"ts": ts, "data": data}
                     return data
             else:
-                close = df.get("Close") or df.get("Adj Close")
+                close = df["Close"] if "Close" in df else df.get("Adj Close")
                 if close is None:
                     data = {"error": "Close price not available", "beta": None, "alpha_annual": None, "r_squared": None, "sharpe": None, "vol_annual": None, "points": 0}
                     _CAPM_CACHE[key] = {"ts": ts, "data": data}
                     return data
 
+            if isinstance(close, pd.Series):
+                if len(download_list) != 1:
+                    return {"error": "Ticker-labelled close prices required", "beta": None, "alpha_annual": None, "r_squared": None, "sharpe": None, "vol_annual": None, "points": 0}
+                close = close.to_frame(download_list[0])
             bench = str(benchmark_ticker).upper()
             if bench not in close.columns:
                 data = {"error": f"Benchmark '{bench}' missing", "beta": None, "alpha_annual": None, "r_squared": None, "sharpe": None, "vol_annual": None, "points": 0}
                 _CAPM_CACHE[key] = {"ts": ts, "data": data}
                 return data
 
+            missing = [ticker for ticker, quantity in fp if quantity and ticker not in close.columns]
+            if missing:
+                return {"error": "Holdings missing price history: " + ", ".join(missing), "beta": None, "alpha_annual": None, "r_squared": None, "sharpe": None, "vol_annual": None, "points": 0}
             # Portfolio value series: sum(close[t] * qty)
             port_val = None
             for t, q in fp:
-                if t == bench or q == 0.0:
+                if q == 0.0:
                     continue
                 if t not in close.columns:
                     continue
@@ -399,8 +412,8 @@ class FinancialToolkit(ToolkitPayloadsMixin, ToolkitRunMixin, ToolkitMenuMixin):
                 _CAPM_CACHE[key] = {"ts": ts, "data": data}
                 return data
 
-            port_ret = port_val.pct_change().dropna()
-            mkt_ret = close[bench].pct_change().dropna()
+            port_ret = port_val.pct_change(fill_method=None).dropna()
+            mkt_ret = close[bench].pct_change(fill_method=None).dropna()
 
             capm = calculations.compute_capm_metrics_from_returns(
                 port_ret,

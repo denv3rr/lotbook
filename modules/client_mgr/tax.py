@@ -1,6 +1,6 @@
 import json
 import os
-from datetime import datetime
+from datetime import date, datetime
 from typing import Any, Dict, List, Optional
 
 from modules.client_mgr.client_model import Client, Account
@@ -46,6 +46,16 @@ class TaxEngine:
     def _parse_timestamp(raw: Any) -> Optional[datetime]:
         return parse_timestamp(raw)
 
+    @staticmethod
+    def is_long_term(acquired: date, as_of: date, jurisdiction: str, threshold: int) -> bool:
+        if jurisdiction.upper() in ("US", "USA", "UNITED STATES"):
+            try:
+                anniversary = acquired.replace(year=acquired.year + 1)
+            except ValueError:
+                anniversary = date(acquired.year + 1, 2, 28)
+            return as_of > anniversary
+        return (as_of - acquired).days >= threshold
+
     def _get_rules_for_account(self, account: Account, client_tax: Dict[str, Any]) -> Dict[str, Any]:
         jurisdiction = (account.tax_settings or {}).get("jurisdiction") or client_tax.get("tax_country") or client_tax.get("residency_country") or "DEFAULT"
         key = str(jurisdiction).strip().upper()
@@ -58,6 +68,7 @@ class TaxEngine:
         client_tax_profile: Dict[str, Any],
     ) -> Dict[str, Any]:
         settings = account.tax_settings or {}
+        jurisdiction = str(settings.get("jurisdiction") or client_tax_profile.get("tax_country") or client_tax_profile.get("residency_country") or "DEFAULT")
         rules = self._get_rules_for_account(account, client_tax_profile or {})
         rates = rules.get("rates", {}) if isinstance(rules, dict) else {}
         long_term_days = int(rules.get("long_term_days", 365) or 365)
@@ -95,8 +106,11 @@ class TaxEngine:
                 if ts is None:
                     totals["unknown_term"] += gain
                     continue
-                holding_days = (datetime.now() - ts).days
-                if holding_days >= long_term_days:
+                if ts.date() > date.today():
+                    totals["unknown_term"] += gain
+                    warnings.append(f"Future acquisition date for {ticker}; term unavailable.")
+                    continue
+                if self.is_long_term(ts.date(), date.today(), jurisdiction, long_term_days):
                     totals["long_term"] += gain
                 else:
                     totals["short_term"] += gain

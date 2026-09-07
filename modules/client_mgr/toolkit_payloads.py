@@ -98,7 +98,7 @@ class ToolkitPayloadsMixin:
             enriched_data=enriched,
             holdings=holdings,
             interval=interval,
-            lot_map=lot_map,
+            lot_map=None,
         )
         if not history:
             has_holdings = any(
@@ -132,6 +132,7 @@ class ToolkitPayloadsMixin:
         )
         snap["scope_label"] = scope
         snap["interval"] = interval
+        snap["methodology"] = "Fixed current holdings on shared price timestamps. This is price-return reconstruction, not historical account performance; purchases are not investment returns."
         return snap
 
     def build_pattern_payload(

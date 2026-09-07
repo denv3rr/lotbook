@@ -1,4 +1,5 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { AreaSparkline, DistributionBars } from "../components/ui/Charts";
 import { Card } from "../components/ui/Card";
 import { Collapsible } from "../components/ui/Collapsible";
@@ -109,8 +110,8 @@ type DashboardPayload = {
   interval: string;
   totals: {
     market_value: number;
-    manual_value: number;
-    total_value: number;
+    manual_value: number | null;
+    total_value: number | null;
     holdings_count: number;
     manual_count: number;
   };
@@ -214,6 +215,7 @@ const metricDefinitions: Record<string, {
 };
 
 export default function Clients() {
+  const [searchParams] = useSearchParams();
   const {
     data: index,
     error: indexError,
@@ -221,7 +223,7 @@ export default function Clients() {
     refresh: refreshIndex
   } = useApi<ClientIndex>("/api/clients", { interval: 60000 });
   const rows = index?.clients ?? [];
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [selectedId, setSelectedId] = useState<string | null>(searchParams.get("client"));
   const [detail, setDetail] = useState<ClientDetail | null>(null);
   const [detailError, setDetailError] = useState<string | null>(null);
   const [query, setQuery] = useState("");
@@ -1395,7 +1397,7 @@ export default function Clients() {
               <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-5">
                 <KpiCard
                   label="Total Value"
-                  value={`$${activeTotals.total_value.toFixed(2)}`}
+                  value={activeTotals.total_value == null ? "Unavailable" : `$${activeTotals.total_value.toFixed(2)}`}
                   tone="text-green-300"
                 />
                 <KpiCard
@@ -1405,7 +1407,7 @@ export default function Clients() {
                 />
                 <KpiCard
                   label="Manual Value"
-                  value={`$${activeTotals.manual_value.toFixed(2)}`}
+                  value={activeTotals.manual_value == null ? "Unavailable" : `$${activeTotals.manual_value.toFixed(2)}`}
                   tone="text-slate-100"
                 />
                 <KpiCard
