@@ -2,12 +2,14 @@ import {
   FileText,
   Settings,
   Shield,
-  TerminalSquare
+  TerminalSquare,
+  Calculator
 } from "lucide-react";
 
 export const navItems = [
-  { label: "Overview", icon: TerminalSquare, path: "/" },
+  { label: "Advisory", icon: TerminalSquare, path: "/" },
   { label: "Clients", icon: Shield, path: "/clients" },
+  { label: "Valuation", icon: Calculator, path: "/valuation" },
   { label: "Reports", icon: FileText, path: "/reports" },
   { label: "System", icon: Settings, path: "/system" }
 ];

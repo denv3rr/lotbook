@@ -4,6 +4,7 @@ import { navItems } from "../../config/navigation";
 import { ErrorBanner } from "../ui/ErrorBanner";
 import { getApiBase, useApi } from "../../lib/api";
 import { TopNav } from "./TopNav";
+import { CloseApp } from "./CloseApp";
 import { SceneProvider, useSceneController } from "../../lib/scene";
 
 type AppShellProps = {
@@ -46,12 +47,14 @@ function DrawerLoading() {
 }
 
 function ShellFrame({ children }: AppShellProps) {
+  const [closeRequested, setCloseRequested] = useState(false);
+  const [stopping, setStopping] = useState(false);
   const location = useLocation();
   const { error: healthError, warnings: healthWarnings, refresh } = useApi<{
     status: string;
   }>(
     "/api/health",
-    { interval: 60000 }
+    { interval: 60000, enabled: !stopping }
   );
   const [contextOpen, setContextOpen] = useState(false);
   const [assistantOpen, setAssistantOpen] = useState(false);
@@ -69,13 +72,11 @@ function ShellFrame({ children }: AppShellProps) {
     if (path.startsWith("/news")) return "news";
     return "unknown";
   })();
-  const sceneEnabled = entry === "dashboard" || entry === "osint";
+  const sceneEnabled = true;
 
   useEffect(() => {
-    if (!sceneEnabled && isOpen) {
-      closeScene();
-    }
-  }, [closeScene, isOpen, sceneEnabled]);
+    closeScene();
+  }, [location.pathname, closeScene]);
 
   const healthMessages: string[] = [];
   if (healthError) {
@@ -84,6 +85,8 @@ function ShellFrame({ children }: AppShellProps) {
   for (const warning of healthWarnings) {
     healthMessages.push(`API health warning: ${warning}`);
   }
+
+  if (stopping) return <main className="bank-stopped"><h1>Clear is shutting down.</h1><p>The shutdown request was accepted. Active API work will finish, then the dashboard server will stop.</p><p>You can close this browser tab. Your saved records remain on this computer.</p></main>;
 
   return (
     <div className="min-h-screen text-slate-100 overflow-x-hidden bg-black">
@@ -94,9 +97,10 @@ function ShellFrame({ children }: AppShellProps) {
         onToggleScene={() => toggleScene(sceneEnabled ? "overview" : undefined)}
         sceneAvailable={sceneEnabled}
         sceneOpen={isOpen}
+        onCloseApp={() => setCloseRequested(true)}
       />
       <div className="flex min-h-screen min-w-0">
-        <main className="flex-1 min-w-0 px-6 py-8 md:px-10 lg:px-12 space-y-10 overflow-x-hidden">
+        <main id="main-content" tabIndex={-1} className="flex-1 min-w-0 px-4 py-8 md:px-10 lg:px-12 space-y-10 overflow-x-hidden">
           <ErrorBanner messages={healthMessages} onRetry={refresh} />
           {children}
         </main>
@@ -106,6 +110,7 @@ function ShellFrame({ children }: AppShellProps) {
           <GlobeOverlay />
         </Suspense>
       ) : null}
+      {closeRequested && <CloseApp onCancel={() => setCloseRequested(false)} onStopping={() => { closeScene(); setStopping(true); }} />}
       {contextOpen ? (
         <Suspense fallback={<DrawerLoading />}>
           <ContextDrawer variant="overlay" onClose={() => setContextOpen(false)} />

@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useId, useRef } from "react";
 import type { ReactNode } from "react";
 
 type ModalProps = {
@@ -18,28 +18,34 @@ export function Modal({
   children,
   footer
 }: ModalProps) {
+  const dialogRef = useRef<HTMLDialogElement>(null);
+  const titleId = useId();
   useEffect(() => {
-    if (!open) return;
-    const onKey = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        onClose();
-      }
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [open, onClose]);
-
-  if (!open) return null;
+    const dialog = dialogRef.current;
+    if (!dialog || !open) return;
+    const trigger = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    dialog.showModal();
+    return () => { dialog.close(); trigger?.focus(); };
+  }, [open]);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 px-4">
-      <div className="w-full max-w-lg rounded-2xl border border-slate-700/70 bg-slate-950 shadow-xl">
+    <dialog ref={dialogRef} aria-labelledby={titleId} aria-describedby={description ? `${titleId}-description` : undefined}
+      onKeyDown={event => {
+        if (event.key !== "Tab") return;
+        const targets = Array.from(event.currentTarget.querySelectorAll<HTMLElement>('button:not(:disabled), input:not(:disabled), select:not(:disabled), textarea:not(:disabled), a[href], [tabindex="0"]')).filter(element => element.getClientRects().length > 0);
+        const first = targets[0], last = targets[targets.length - 1];
+        if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last?.focus(); }
+        else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first?.focus(); }
+      }}
+      onCancel={(event) => { event.preventDefault(); onClose(); }}
+      className="clear-dialog m-auto w-[calc(100%-2rem)] max-w-xl max-h-[90dvh] overflow-y-auto rounded-2xl border border-slate-600 bg-slate-950 p-0 text-slate-100 shadow-xl">
+      {open ? <div>
         <div className="border-b border-slate-800 px-5 py-4">
           <div className="flex items-start justify-between gap-4">
             <div>
-              <p className="text-sm font-semibold text-slate-100">{title}</p>
+              <h2 id={titleId} className="text-lg font-semibold text-slate-100">{title}</h2>
               {description ? (
-                <p className="mt-1 text-xs text-slate-400">{description}</p>
+                <p id={`${titleId}-description`} className="mt-1 text-xs text-slate-400">{description}</p>
               ) : null}
             </div>
             <button
@@ -58,7 +64,7 @@ export function Modal({
             {footer}
           </div>
         ) : null}
-      </div>
-    </div>
+      </div> : null}
+    </dialog>
   );
 }

@@ -1,11 +1,15 @@
 # Clear
 ![GitHub Created At](https://img.shields.io/github/created-at/denv3rr/clear) ![GitHub repo size](https://img.shields.io/github/repo-size/denv3rr/clear)
 
-A local-first portfolio, analytics, and basic OSINT platform with shared
-CLI, API, and web surfaces. It combines client/account data, deterministic
-financial calculations, tracker feeds, news/intel summaries, a
-rules-based assistant (add your own model connections and guardrails). **The globe dash
-is a *test* immersive viewer, not a finished operational surface. It's still pretty buggy.**
+A local-first advisory and client-management workspace with portfolio
+analytics and supporting OSINT. The dashboard opens on client relationships,
+deal pipeline and next actions. It includes DCF, trading comparables and saved
+valuation versions; World remains available from the Workspace menu.
+Dashboard and API development take priority; new advisory CLI parity is deferred.
+
+See [advisory/API guide](docs/banking_api.md), [valuation methods](docs/banking_valuation.md)
+and [product readiness gates](docs/advisory_product_plan.md). This is not a
+certified, hosted investment-banking platform; material production gates remain.
 
 ## Agents
 This is not a general multi-agent reasoning framework. Agent git rules and

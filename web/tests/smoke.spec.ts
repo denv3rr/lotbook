@@ -13,14 +13,12 @@ async function expectAnyVisible(locators: Locator[]) {
     .toBe(true);
 }
 
-test("dashboard renders overview and OSINT callout", async ({ page }) => {
+test("advisory landing keeps World secondary", async ({ page }) => {
   await page.goto("/");
-  await expect(page.getByRole("heading", { name: "Overview" })).toBeVisible();
-  await expect(
-    page.getByRole("button", { name: /World Workspace/ })
-  ).toBeVisible();
-  await expect(page.getByTestId("overview-open-globe")).toBeVisible();
-  await expect(page.getByTestId("globe-overlay")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Your work, in focus." })).toBeVisible();
+  await expect(page.getByTestId("globe-overlay")).toHaveCount(0);
+  await page.getByText("Workspace", { exact: true }).click();
+  await expect(page.getByRole("button", { name: "Open World", exact: true })).toBeVisible();
 });
 
 test("clients page renders command center with real data or safe empty state", async ({ page }) => {

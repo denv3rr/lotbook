@@ -4,9 +4,8 @@ async function openAssistant(page: Page) {
   const assistantVisible = page.locator("button:visible", {
     hasText: "Assistant"
   });
-  const toggle = page.getByRole("button", { name: "Toggle navigation" });
-  if ((await assistantVisible.count()) === 0 && (await toggle.count())) {
-    await toggle.first().click();
+  if ((await assistantVisible.count()) === 0) {
+    await page.getByText("Workspace", { exact: true }).click();
   }
   await expect(assistantVisible.first()).toBeVisible();
   await assistantVisible.first().click();

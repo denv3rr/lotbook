@@ -252,6 +252,19 @@ function formatApiError(status: number): string {
   return `API ${status}`;
 }
 
+async function responseError(response: Response): Promise<Error> {
+  const prefix = formatApiError(response.status);
+  if (response.status === 401 || response.status === 403 || response.status >= 500) return new Error(prefix);
+  try {
+    const payload = await response.json();
+    const detail = payload.detail;
+    const message = typeof detail === "string" ? detail : Array.isArray(detail)
+      ? detail.map((item: { field?: string; message?: string; loc?: string[]; msg?: string }) => `${item.field || item.loc?.filter(part => part !== "body").join(".") || "Input"}: ${item.message || item.msg || "Invalid value"}`).join("; ")
+      : detail?.message;
+    return new Error(message ? `${prefix}: ${message}` : prefix);
+  } catch { return new Error(prefix); }
+}
+
 export async function apiGet<T>(path: string, ttl = 0, signal?: AbortSignal): Promise<T> {
   const key = cacheKey(path);
   if (ttl > 0) {
@@ -279,7 +292,7 @@ export async function apiGet<T>(path: string, ttl = 0, signal?: AbortSignal): Pr
     throw new Error(`API unreachable at ${API_BASE}. ${detail}${cspHint}`);
   }
   if (!response.ok) {
-    throw new Error(formatApiError(response.status));
+    throw await responseError(response);
   }
   const payload = await parseJson<T>(response);
   if (ttl > 0) {
@@ -292,6 +305,7 @@ type WriteMethod = "POST" | "PATCH" | "PUT" | "DELETE";
 
 async function apiWrite<T>(path: string, method: WriteMethod, body?: unknown): Promise<T> {
   const headers: Record<string, string> = { "Content-Type": "application/json" };
+  if (path === "/api/application/shutdown") headers["X-Clear-Shutdown"] = "confirm";
   const apiKey = await getApiKey();
   if (apiKey) {
     headers["X-API-Key"] = apiKey;
@@ -308,7 +322,7 @@ async function apiWrite<T>(path: string, method: WriteMethod, body?: unknown): P
     throw new Error(`API unreachable at ${API_BASE}. ${detail}`);
   }
   if (!response.ok) {
-    throw new Error(formatApiError(response.status));
+    throw await responseError(response);
   }
   return parseJson<T>(response);
 }

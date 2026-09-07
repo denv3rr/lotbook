@@ -1,5 +1,10 @@
 # Visual Modernization Plan
 
+September 2026 product override: advisory/client management is the default
+landing workspace. World is an optional Workspace menu action, not the
+centerpiece. Globe-first proposals below apply only within the OSINT viewer;
+no new globe layers or relaxation of standards gates is authorized here.
+
 Status: Proposed on March 18, 2026. Execution is gated by
 `docs/standards_remediation_plan.md`.
 
