@@ -2,6 +2,76 @@
 
 @import "tailwindcss";
 
+.clear-dialog::backdrop { background: rgb(0 0 0 / .72); backdrop-filter: blur(4px); }
+.bank-nav { background:#11171f; border-bottom:1px solid #2a3542; position:relative; z-index:30; }
+.bank-nav-inner { display:flex; align-items:center; gap:30px; padding:17px 40px; max-width:1800px; margin:auto; }
+.bank-brand { font-size:20px; letter-spacing:.14em; font-weight:600; white-space:nowrap; }.bank-brand span { display:block; font-size:10px; color:#9fabbc; letter-spacing:.02em; font-weight:400; }
+.bank-primary-nav { display:flex; align-items:center; gap:8px; flex:1; }.bank-primary-nav a { display:flex; align-items:center; gap:8px; padding:11px 13px; border-radius:8px; font-size:13px; color:#b3c0d0; }.bank-primary-nav a.active { background:#23332f; color:#adeacd; }
+.bank-nav-utilities { display:flex; gap:9px; margin-left:auto; }.bank-mobile-toggle { display:none!important; }.bank-workspace-menu { position:relative; }.bank-workspace-menu summary { list-style:none; }.bank-workspace-menu summary::-webkit-details-marker { display:none; }.bank-menu-items { position:absolute; right:0; top:calc(100% + 8px); min-width:230px; border:1px solid #405164; border-radius:10px; background:#131e29; box-shadow:0 15px 40px #0008; padding:6px; }.bank-menu-items>* { display:block; width:100%; text-align:left; border-radius:6px; padding:12px; font-size:13px; cursor:pointer; }.bank-menu-items>*:hover { background:#263e3c; }
+.bank-skip { position:absolute; top:-60px; left:15px; padding:10px; color:#10271e; background:#a6efcd; z-index:100; }.bank-skip:focus { top:8px; }.bank-stopped { max-width:700px; margin:15vh auto; padding:30px; color:#d5e1ed; }.bank-stopped h1 { font-size:32px; margin-bottom:24px; }.bank-stopped p { margin:15px 0; line-height:1.7; }
+@media(max-width:1100px) { .bank-nav-inner { padding:15px 20px; gap:14px; flex-wrap:wrap; }.bank-mobile-toggle { display:inline-flex!important; }.bank-primary-nav { display:none; }.bank-primary-nav.is-open { display:flex; flex-basis:100%; order:4; flex-wrap:wrap; } }
+@media(max-width:480px) { .bank-nav-inner { gap:9px; padding:12px; }.bank-brand { font-size:16px; }.bank-brand span { display:none; }.bank-nav-utilities { gap:5px; }.bank-nav-utilities .bank-button { padding:10px; font-size:12px; }.bank-close-app span { display:none; }.bank-close-app { min-width:42px; } }
+:focus-visible { outline: 2px solid #70e8b8; outline-offset: 4px; }
+.bank-workspace { max-width: 1600px; margin: 0 auto; display: grid; gap: 24px; font-size: 14px; }
+.bank-heading { display:flex; align-items:center; justify-content:space-between; gap:24px; }
+.bank-heading h1 { font-size:clamp(28px,3vw,42px); letter-spacing:-.045em; font-weight:600; margin:8px 0; line-height:1.12; }
+.bank-eyebrow { font:600 10px/1.5 "IBM Plex Mono",monospace; letter-spacing:.14em; color:#79d6b3; }
+.bank-muted,.bank-subline { color:#a4afbe; font-size:13px; line-height:1.6; }
+.bank-subline { display:block; font-weight:400; margin-top:4px; }
+.bank-status { min-height:18px; color:#a4afbe; font-size:12px; margin-top:-10px; }
+.bank-actions,.bank-form-actions { display:flex; flex-wrap:wrap; align-items:center; gap:10px; }
+.bank-button,.bank-icon-button { display:inline-flex; align-items:center; justify-content:center; gap:8px; min-height:42px; border:1px solid #39434f; border-radius:9px; padding:10px 15px; color:#e3eaf3; font-size:13px; font-weight:500; background:#151b23; cursor:pointer; white-space:nowrap; }
+.bank-icon-button { padding:10px; min-width:42px; }
+.bank-button:hover,.bank-icon-button:hover { background:#24302f; border-color:#72867f; }
+.bank-primary { background:#91e5c2; color:#0a2921; border-color:#91e5c2; }
+.bank-primary:hover { background:#b1f1d5; color:#0a2921; }
+.bank-button:disabled,.bank-icon-button:disabled,.bank-text-button:disabled { opacity:.45; cursor:not-allowed; }
+.bank-stats { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:16px; }
+.bank-stat { border:1px solid #29313b; background:#11171e; border-radius:12px; padding:20px; display:grid; gap:12px; }
+.bank-stat span { color:#aab6c7; font-size:12px; }
+.bank-stat strong { font-size:32px; font-weight:500; letter-spacing:-.03em; font-variant-numeric:tabular-nums; }
+.bank-stat .bank-value { font-size:clamp(18px,2vw,28px); overflow-wrap:anywhere; }
+.bank-stats-two { grid-template-columns:repeat(2,minmax(0,1fr)); margin:20px 0; }
+.bank-panel { border:1px solid #29313b; border-radius:14px; background:#10161d; min-width:0; overflow:hidden; }
+.bank-panel-heading { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:10px 18px; border-bottom:1px solid #29313b; }
+.bank-tabs { display:flex; gap:20px; overflow:auto; }
+.bank-tabs button { padding:14px 0; min-height:44px; border-bottom:2px solid transparent; font-weight:500; color:#a4afbe; white-space:nowrap; cursor:pointer; }
+.bank-tabs button.active { color:#a6efcd; border-color:#91e5c2; }
+.bank-toolbar { display:flex; flex-wrap:wrap; gap:10px; padding:18px; }
+.bank-search { display:flex; align-items:center; gap:10px; flex:1; min-width:190px; border:1px solid #35404f; border-radius:8px; padding:0 12px; color:#98a7ba; }
+.bank-search input { background:transparent; min-height:42px; width:100%; outline-offset:0; min-width:0; }
+.bank-toolbar select,.bank-field input,.bank-field select,.bank-field textarea { border:1px solid #3b4655; border-radius:8px; padding:10px 12px; min-height:44px; background:#0c1219; color:#e6edf7; width:100%; min-width:0; color-scheme:dark; }
+.bank-toolbar select { width:auto; max-width:230px; }
+.bank-table-scroll { overflow:auto; max-width:100%; }
+.bank-table { width:100%; border-collapse:collapse; font-size:13px; text-align:left; }
+.bank-table th,.bank-table td { padding:17px 20px; border-bottom:1px solid #25303b; vertical-align:top; }
+.bank-table th { font-weight:500; }
+.bank-table thead th { color:#a4afbe; background:#151d26; font-size:11px; white-space:nowrap; }
+.bank-table caption { text-align:left; padding:12px 0; color:#a4afbe; }
+.bank-table tbody tr:hover { background:#151e26; }
+.bank-table tbody tr:last-child td,.bank-table tbody tr:last-child th { border-bottom:0; }
+.bank-number { font-variant-numeric:tabular-nums; white-space:nowrap; }
+.bank-wrap { max-width:360px; overflow-wrap:anywhere; white-space:pre-wrap; }
+.bank-badge { display:inline-block; border:1px solid #425360; background:#1b2934; color:#cadce8; border-radius:5px; padding:4px 8px; font-size:11px; white-space:nowrap; }
+.stage-mandated,.stage-closed { color:#acf0d2; border-color:#366f57; background:#123c2d; }
+.bank-text-button { color:#a6efcd; display:inline-flex; align-items:center; gap:5px; cursor:pointer; min-height:30px; text-align:left; overflow-wrap:anywhere; }
+.bank-text-button:hover { text-decoration:underline; }
+.bank-empty { padding:55px 24px; display:flex; flex-direction:column; align-items:center; text-align:center; gap:12px; color:#a4afbe; }
+.bank-empty h3,.bank-empty h2 { font-size:18px; color:#e0e8f0; }.bank-empty p { max-width:480px; }
+.bank-onboarding { border:1px solid #3c6858; background:linear-gradient(120deg,#132c26,#121b24); border-radius:14px; padding:30px; display:flex; justify-content:space-between; align-items:center; gap:28px; }
+.bank-onboarding h2,.bank-padded h2 { font-size:22px; margin:8px 0; font-weight:500; letter-spacing:-.025em; }.bank-onboarding p { max-width:720px; line-height:1.6; }
+.bank-bottom-grid { display:grid; grid-template-columns:1fr 1fr; gap:20px; }.bank-padded { padding:25px; }.bank-padded .bank-button { margin-top:18px; }
+.bank-form { display:grid; grid-template-columns:1fr 1fr; gap:16px; }.bank-field { display:flex; flex-direction:column; gap:7px; font-size:12px; color:#c3cfdd; min-width:0; }.bank-span { grid-column:1/-1; }.bank-form-actions { justify-content:flex-end; border-top:1px solid #34404a; padding-top:18px; }
+.bank-form-title { font-size:17px; font-weight:500; margin:22px 0 12px; }.bank-form-title:first-child { margin-top:0; }
+.bank-relationships { display:grid; grid-template-columns:1fr 1fr; gap:30px; padding:24px; }.bank-relationships h2 { font-size:17px; margin-bottom:15px; }.bank-client-row { display:flex; justify-content:space-between; gap:16px; padding:20px 0; border-top:1px solid #2b3642; }.bank-client-row h3 { font-weight:500; }.bank-client-row>div { min-width:0; }
+.bank-task { display:flex; align-items:flex-start; gap:16px; padding:20px 24px; border-top:1px solid #293441; }.bank-task>div:nth-child(2) { flex:1; min-width:0; }.bank-task-date { text-align:right; }.bank-complete { color:#91e5c2; }
+.bank-error { padding:14px 16px; border:1px solid #8a6638; background:#2c2115; color:#ffe0ae; border-radius:9px; font-size:13px; line-height:1.6; }
+.bank-valuation-grid { display:grid; grid-template-columns:minmax(300px,.85fr) minmax(0,1.4fr); gap:24px; align-items:start; }.bank-valuation-grid fieldset { min-width:0; }.bank-valuation-grid .bank-muted { margin:10px 0 15px; }.bank-sensitivity { font-size:11px; }.bank-sensitivity td,.bank-sensitivity th { padding:11px; white-space:nowrap; }
+.bank-details { margin-top:24px; border-top:1px solid #34434c; padding-top:20px; line-height:1.7; color:#aab9c9; }.bank-details summary { cursor:pointer; color:#c9dddf; min-height:40px; }.bank-details ul { padding-left:20px; list-style:disc; }
+.bank-activity { border-bottom:1px solid #35404f; padding:15px 0; }.bank-activity h3 { font-size:13px; }.bank-activity dl>div { display:grid; grid-template-columns:1fr 2fr; gap:10px; padding:7px 0; overflow-wrap:anywhere; }.bank-activity dt { color:#9baaba; text-transform:capitalize; }
+@media(max-width:1000px) { .bank-valuation-grid { grid-template-columns:1fr; }.bank-heading { align-items:flex-start; }.bank-relationships { grid-template-columns:1fr; } }
+@media(max-width:640px) { .bank-heading,.bank-onboarding { flex-direction:column; align-items:stretch; }.bank-stats { grid-template-columns:1fr 1fr; gap:10px; }.bank-stat { padding:15px; }.bank-stat strong { font-size:26px; }.bank-bottom-grid,.bank-form { grid-template-columns:1fr; }.bank-panel-heading { padding:8px 12px; }.bank-tabs { gap:13px; font-size:12px; }.bank-toolbar { padding:12px; }.bank-toolbar select { max-width:100%; flex:1; }.bank-task { padding:16px 12px; flex-wrap:wrap; }.bank-task-date { margin-left:54px; text-align:left; }.bank-padded { padding:18px; } }
+
 :root {
   --black: #000000;
   --slate-950: #0C0E11;

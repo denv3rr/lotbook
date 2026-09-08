@@ -5,6 +5,7 @@ import errno
 from typing import Optional
 
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
+from starlette.concurrency import run_in_threadpool
 
 from modules.market_data.trackers import GlobalTrackers
 from web_api.auth import require_websocket_key
@@ -46,7 +47,7 @@ async def trackers_stream(websocket: WebSocket, mode: Optional[str] = None, inte
     stream_interval = max(1, min(int(interval or 5), 60))
     try:
         while True:
-            payload = trackers.get_snapshot(mode=stream_mode)
+            payload = await run_in_threadpool(trackers.get_snapshot, mode=stream_mode)
             warnings = list(payload.get("warnings", []) or [])
             warnings = validate_payload(
                 payload,

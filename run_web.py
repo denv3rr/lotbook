@@ -18,6 +18,7 @@ if __name__ == "__main__" and not ensure_runtime_dependencies(
     raise SystemExit(1)
 
 import httpx
+from utils.stack_control import prepare_control, record_process, shutdown_requested
 
 LOGGER = logging.getLogger("clear.run_web")
 
@@ -243,14 +244,18 @@ def _launch_processes(
         return 1
     if not _terminate_port_processes(5173, "UI", ui_tokens, auto_yes):
         return 1
-    api_cmd = [sys.executable, "-m", "uvicorn", "web_api.app:app"]
+    api_cmd = [sys.executable, "-m", "web_api.server"]
+    control_path = prepare_control(5173)
+    api_env = os.environ.copy()
+    api_env["CLEAR_STACK_CONTROL"] = str(control_path)
     if reload_api:
-        api_cmd.append("--reload")
+        api_cmd = [sys.executable, "-m", "uvicorn", "web_api.app:app", "--reload"]
     api_cmd.extend(["--port", "8000"])
     ui_cmd = [npm_path, "run", "dev", "--", "--host", "127.0.0.1", "--port", "5173"]
 
-    api_proc = _spawn_process(api_cmd, detach=detach)
+    api_proc = _spawn_process(api_cmd, env=api_env, detach=detach)
     write_pid(API_PID, api_proc.pid)
+    record_process(control_path, "api", api_proc.pid)
     api_port = 8000
     ui_port = 5173
     try:
@@ -273,8 +278,9 @@ def _launch_processes(
     api_key = os.environ.get("CLEAR_WEB_API_KEY")
     if api_key:
         ui_env.setdefault("VITE_API_KEY", api_key)
-    ui_proc = _spawn_process(ui_cmd, cwd=web_dir, env=ui_env, detach=detach)
+    ui_proc = _spawn_process(ui_cmd, cwd=os.path.realpath(web_dir), env=ui_env, detach=detach)
     write_pid(WEB_PID, ui_proc.pid)
+    record_process(control_path, "web", ui_proc.pid)
     if not wait_for_port(ui_port, timeout=6.0):
         print(">> Web UI failed to start on http://127.0.0.1:5173. Check output.")
         terminate_pid(api_proc.pid)
@@ -283,6 +289,7 @@ def _launch_processes(
             if pid_path.exists():
                 pid_path.unlink(missing_ok=True)
         return 1
+    record_process(control_path, "web", ui_proc.pid)
     print(">> Web UI: http://127.0.0.1:5173  |  API: http://127.0.0.1:8000")
     if auto_open:
         webbrowser.open("http://127.0.0.1:5173/")
@@ -291,7 +298,14 @@ def _launch_processes(
         return 0
     print(">> Press CTRL+C to stop.")
 
+    cleaned_up = False
     def _shutdown() -> None:
+        nonlocal cleaned_up
+        if cleaned_up:
+            return
+        cleaned_up = True
+        if shutdown_requested(control_path):
+            return
         for proc in (api_proc, ui_proc):
             if proc.poll() is None:
                 terminate_pid(proc.pid, timeout=8.0)
@@ -323,6 +337,9 @@ def _launch_processes(
                 _shutdown()
                 return api_proc.returncode or 0
             if ui_proc.poll() is not None:
+                if shutdown_requested(control_path):
+                    time.sleep(0.1)
+                    continue
                 _shutdown()
                 return ui_proc.returncode or 0
             time.sleep(0.5)

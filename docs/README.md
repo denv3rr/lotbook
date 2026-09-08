@@ -1,5 +1,10 @@
 # Docs Index
 
+- `docs/advisory_product_plan.md` — current advisory scope and production gates.
+- `docs/banking_api.md` — dashboard, saved-model and advisory route contracts.
+- `docs/banking_valuation.md` — DCF/comparable formulas, inputs and limitations.
+- `docs/advisory_math_verification.md` — bounded portfolio-math corrections.
+
 - `docs/architecture.md` — architecture standards and layout conventions.
 - `docs/ai_assistant.md` — AI assistant plan and current status.
 - `docs/assistant_usage.md` — assistant usage across API, web, and CLI.

@@ -1,5 +1,13 @@
 # Standards Remediation Plan
 
+September 2026 bounded progress: advisory route acceptance now uses actual
+isolated SQLite writes; `playwright.advisory.config.ts` launches the real
+foreground launcher with disposable data for client/deal/task and close-app
+workflows. The default browser suite explicitly excludes these mutating tests.
+This does not migrate all older positive-path stubs or close the repo-wide gate.
+See `advisory_product_plan.md`, `banking_valuation.md` and
+`advisory_math_verification.md` for the bounded scope and remaining limitations.
+
 This plan is the mandatory gate before the next major visual modernization
 phase. `docs/us_gov_standards.md` remains the binding baseline; this document
 turns the audit findings into ordered engineering work, owners, and exit

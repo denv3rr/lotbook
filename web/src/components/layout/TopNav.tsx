@@ -1,200 +1,22 @@
-import { useState } from "react";
-import type { ComponentType } from "react";
-import { NavLink } from "react-router-dom";
-import { Menu, X, Bot, Orbit } from "lucide-react";
+import { useEffect, useRef, useState, type ComponentType } from "react";
+import { NavLink, Link, useLocation } from "react-router-dom";
+import { ChevronDown, Menu, Power, X } from "lucide-react";
 
-type NavItem = {
-  label: string;
-  icon: ComponentType<{ size?: number }>;
-  path: string;
-};
-
-type TopNavProps = {
-  items: NavItem[];
-  onToggleContext?: () => void;
-  onToggleAssistant?: () => void;
-  onToggleScene?: () => void;
-  sceneAvailable?: boolean;
-  sceneOpen?: boolean;
-};
-
-export function TopNav({
-  items,
-  onToggleContext,
-  onToggleAssistant,
-  onToggleScene,
-  sceneAvailable = false,
-  sceneOpen = false
-}: TopNavProps) {
-  const utilityPaths = new Set(["/system"]);
-  const primaryItems = items.filter((item) => !utilityPaths.has(item.path));
-  const utilityItems = items.filter((item) => utilityPaths.has(item.path));
+type NavItem = { label: string; icon: ComponentType<{ size?: number }>; path: string };
+type TopNavProps = { items: NavItem[]; onToggleContext?: () => void; onToggleAssistant?: () => void; onToggleScene?: () => void; sceneAvailable?: boolean; sceneOpen?: boolean; onCloseApp?: () => void };
+export function TopNav({ items, onToggleContext, onToggleAssistant, onToggleScene, sceneOpen, onCloseApp }: TopNavProps) {
   const [mobileOpen, setMobileOpen] = useState(false);
-
-  return (
-    <header className="border-b border-slate-700 bg-slate-950/95 backdrop-blur">
-      <div className="flex min-w-0 items-center gap-6 py-4 pl-6 pr-6 md:pl-10 md:pr-10 min-[1800px]:pl-[68px] min-[1800px]:pr-12">
-        <div className="flex items-center gap-3">
-          <button
-            type="button"
-            aria-label="Toggle navigation"
-            aria-expanded={mobileOpen}
-            onClick={() => setMobileOpen((prev) => !prev)}
-            className="rounded-full border border-slate-700 p-2 text-slate-100 hover:border-green-500 hover:text-green-500 lg:hidden"
-          >
-            {mobileOpen ? <X size={18} /> : <Menu size={18} />}
-          </button>
-          <span className="text-lg font-semibold tracking-tight">[ CLEAR ]</span>
-          <span className="hidden text-xs text-slate-500 md:inline">
-            Markets • Risk • World
-          </span>
-        </div>
-        <nav className="hidden flex-1 min-w-0 lg:flex">
-          <div className="flex gap-2 py-1">
-            {primaryItems.map(({ label, icon: Icon, path }) => (
-              <NavLink
-                key={label}
-                to={path}
-                className={({ isActive }) =>
-                  [
-                    "flex items-center gap-2 rounded-full px-4 py-2 text-sm transition",
-                    isActive
-                      ? "bg-slate-800 text-green-500"
-                      : "text-slate-300 hover:bg-slate-800"
-                  ].join(" ")
-                }
-              >
-                <Icon size={16} />
-                <span className="whitespace-nowrap">{label}</span>
-              </NavLink>
-            ))}
-          </div>
-        </nav>
-        <div className="flex items-center gap-2">
-          <div className="hidden items-center gap-2 lg:flex">
-            {utilityItems.map(({ label, icon: Icon, path }) => (
-              <NavLink
-                key={label}
-                to={path}
-                className={({ isActive }) =>
-                  [
-                    "flex items-center gap-2 rounded-full px-3 py-2 text-xs transition",
-                    isActive
-                      ? "bg-slate-800 text-green-500"
-                      : "text-slate-300 hover:bg-slate-800"
-                  ].join(" ")
-                }
-              >
-                <Icon size={15} />
-                <span className="whitespace-nowrap">{label}</span>
-              </NavLink>
-            ))}
-          </div>
-          {sceneAvailable ? (
-            <button
-              className="hidden lg:inline-flex rounded-full border border-emerald-400/40 bg-emerald-400/10 px-4 py-2 text-xs text-emerald-200 hover:border-emerald-300 hover:text-emerald-100"
-              type="button"
-              onClick={onToggleScene}
-            >
-              <Orbit size={15} className="mr-2" />
-              {sceneOpen ? "Close World" : "Open World"}
-            </button>
-          ) : null}
-          <button
-            className="hidden rounded-full border border-slate-700 px-4 py-2 text-xs text-slate-100 hover:border-green-500 hover:text-green-500 lg:inline-flex"
-            type="button"
-            onClick={onToggleAssistant}
-          >
-            <Bot size={15} className="mr-2" />
-            Assistant
-          </button>
-          <button
-            className="hidden rounded-full border border-slate-700 px-4 py-2 text-xs text-slate-100 hover:border-green-500 hover:text-green-500 lg:inline-flex"
-            type="button"
-            onClick={onToggleContext}
-          >
-            Context
-          </button>
-        </div>
-      </div>
-      {mobileOpen ? (
-        <div className="border-t border-slate-700 bg-slate-950/95 lg:hidden">
-          <div className="px-6 py-4 space-y-4">
-            <nav className="space-y-2">
-              {primaryItems.map(({ label, icon: Icon, path }) => (
-                <NavLink
-                  key={label}
-                  to={path}
-                  onClick={() => setMobileOpen(false)}
-                  className={({ isActive }) =>
-                    [
-                      "flex items-center gap-2 rounded-xl px-4 py-2 text-sm transition",
-                      isActive
-                        ? "bg-slate-800 text-green-500"
-                        : "text-slate-300 hover:bg-slate-800"
-                    ].join(" ")
-                  }
-                >
-                  <Icon size={16} />
-                  <span>{label}</span>
-                </NavLink>
-              ))}
-            </nav>
-            <div className="border-t border-slate-700 pt-3 space-y-2">
-              {sceneAvailable ? (
-                <button
-                  className="w-full rounded-xl border border-emerald-400/40 bg-emerald-400/10 px-4 py-2 text-left text-sm text-emerald-200 hover:border-emerald-300 hover:text-emerald-100"
-                  type="button"
-                  onClick={() => {
-                    onToggleScene?.();
-                    setMobileOpen(false);
-                  }}
-                >
-                  {sceneOpen ? "Close World" : "Open World"}
-                </button>
-              ) : null}
-              {utilityItems.map(({ label, icon: Icon, path }) => (
-                <NavLink
-                  key={label}
-                  to={path}
-                  onClick={() => setMobileOpen(false)}
-                  className={({ isActive }) =>
-                    [
-                      "flex items-center gap-2 rounded-xl px-4 py-2 text-sm transition",
-                      isActive
-                        ? "bg-slate-800 text-green-500"
-                        : "text-slate-300 hover:bg-slate-800"
-                    ].join(" ")
-                  }
-                >
-                  <Icon size={16} />
-                  <span>{label}</span>
-                </NavLink>
-              ))}
-              <button
-                className="w-full rounded-xl border border-slate-700 px-4 py-2 text-left text-sm text-slate-100 hover:border-green-500 hover:text-green-500"
-                type="button"
-                onClick={() => {
-                  onToggleAssistant?.();
-                  setMobileOpen(false);
-                }}
-              >
-                Assistant
-              </button>
-              <button
-                className="w-full rounded-xl border border-slate-700 px-4 py-2 text-left text-sm text-slate-100 hover:border-green-500 hover:text-green-500"
-                type="button"
-                onClick={() => {
-                  onToggleContext?.();
-                  setMobileOpen(false);
-                }}
-              >
-                Context
-              </button>
-            </div>
-          </div>
-        </div>
-      ) : null}
-    </header>
-  );
+  const menu = useRef<HTMLDetailsElement>(null);
+  const location = useLocation();
+  useEffect(() => { setMobileOpen(false); if (menu.current) menu.current.open = false; }, [location.pathname]);
+  function choose(action?: () => void) { if (menu.current) menu.current.open = false; action?.(); }
+  return <header className="bank-nav"><a href="#main-content" className="bank-skip">Skip to workspace</a><div className="bank-nav-inner"><Link to="/" className="bank-brand">CLEAR<span>Advisory & wealth</span></Link>
+    <button className="bank-icon-button bank-mobile-toggle" aria-label="Toggle navigation" aria-expanded={mobileOpen} onClick={() => setMobileOpen(!mobileOpen)}>{mobileOpen ? <X size={18} /> : <Menu size={18} />}</button>
+    <nav aria-label="Primary navigation" className={`bank-primary-nav ${mobileOpen ? "is-open" : ""}`}>{items.filter(item => item.path !== "/system").map(({ path, label, icon: Icon }) => <NavLink end={path === "/"} to={path} key={path}><Icon size={16} />{label}</NavLink>)}</nav>
+    <div className="bank-nav-utilities"><details ref={menu} className="bank-workspace-menu" onKeyDown={event => { if (event.key === "Escape" && menu.current) { menu.current.open = false; menu.current.querySelector("summary")?.focus(); } }}><summary className="bank-button">Workspace <ChevronDown size={15} /></summary><div className="bank-menu-items">
+      <button onClick={() => choose(onToggleScene)}>{sceneOpen ? "Close World" : "Open World"}</button>
+      <Link to="/osint">Intelligence & trackers</Link><Link to="/system">System & settings</Link>
+      <button onClick={() => choose(onToggleAssistant)}>Assistant</button><button onClick={() => choose(onToggleContext)}>Client context</button>
+    </div></details><button className="bank-button bank-close-app" type="button" aria-label="Close app" onClick={onCloseApp}><Power size={15} /><span>Close app</span></button></div>
+  </div></header>;
 }

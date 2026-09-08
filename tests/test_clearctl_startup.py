@@ -98,6 +98,9 @@ def test_terminate_port_processes_auto_yes(monkeypatch) -> None:
 
 
 def test_start_forwards_api_key_to_ui_env(monkeypatch, tmp_path: Path) -> None:
+    # Unit-only process argument check; actual shutdown is integration-tested.
+    monkeypatch.setattr(clearctl, "prepare_control", lambda _port: tmp_path / "control.json")
+    monkeypatch.setattr(clearctl, "record_process", lambda *_args: None)
     monkeypatch.setenv("CLEAR_WEB_API_KEY", "secret-key")
     monkeypatch.setattr(clearctl, "API_PID", tmp_path / "api.pid")
     monkeypatch.setattr(clearctl, "WEB_PID", tmp_path / "web.pid")
@@ -144,6 +147,8 @@ def test_start_forwards_api_key_to_ui_env(monkeypatch, tmp_path: Path) -> None:
 
 
 def test_start_stops_when_ui_fails(monkeypatch, tmp_path: Path) -> None:
+    monkeypatch.setattr(clearctl, "prepare_control", lambda _port: tmp_path / "control.json")
+    monkeypatch.setattr(clearctl, "record_process", lambda *_args: None)
     monkeypatch.setattr(clearctl, "API_PID", tmp_path / "api.pid")
     monkeypatch.setattr(clearctl, "WEB_PID", tmp_path / "web.pid")
     monkeypatch.setattr(clearctl, "API_LOG", tmp_path / "api.log")

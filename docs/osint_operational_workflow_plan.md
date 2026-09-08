@@ -1,5 +1,9 @@
 # OSINT Operational Workflow Plan
 
+September 2026: OSINT supports the primary advisory/client-management
+workbench. World is available from Workspace > Open World; it does not launch
+on the application landing page. Existing source/provenance gates remain.
+
 Status: Active on March 18, 2026. This plan extends
 `docs/visual_modernization_plan.md` and is gated by
 `docs/us_gov_standards.md` plus `docs/standards_remediation_plan.md`.

@@ -54,9 +54,13 @@ def get_portfolio_and_benchmark_returns(
         else:
             return None, None, "Close price not available"
     else:
-        close = df.get("Close") or df.get("Adj Close")
+        close = df["Close"] if "Close" in df else df.get("Adj Close")
         if close is None:
             return None, None, "Close price not available"
+        if isinstance(close, pd.Series):
+            if len(download_list) != 1:
+                return None, None, "Ticker identity unavailable in price data"
+            close = close.to_frame(download_list[0])
 
     bench = str(benchmark_ticker).upper()
     if bench not in close.columns:
@@ -65,17 +69,19 @@ def get_portfolio_and_benchmark_returns(
     port_val = None
     for t, qty in holdings.items():
         t_norm = str(t).upper()
-        if t_norm == bench or t_norm not in close.columns:
+        if not float(qty):
             continue
+        if t_norm not in close.columns:
+            return None, None, f"Holding '{t_norm}' missing price history"
         series = close[t_norm] * float(qty)
         port_val = series if port_val is None else (port_val + series)
 
     if port_val is None:
         return None, None, "No overlapping price series"
 
-    port_ret = port_val.pct_change().dropna()
-    bench_ret = close[bench].pct_change().dropna()
-    meta = f"Period: {period} | Interval: {interval} | Points: {len(port_ret)}"
+    port_ret = port_val.pct_change(fill_method=None).dropna()
+    bench_ret = close[bench].pct_change(fill_method=None).dropna()
+    meta = f"Fixed current holdings; price-return reconstruction, not cash-flow-adjusted account performance. Period: {period} | Interval: {interval} | Points: {len(port_ret)}"
     return port_ret, bench_ret, meta
 
 
@@ -137,4 +143,3 @@ def compute_capm_metrics_from_holdings(
         data = {"error": f"CAPM compute error: {ex}", "beta": None, "alpha_annual": None, "r_squared": None, "sharpe": None, "vol_annual": None, "points": 0}
         _CAPM_CACHE[key] = {"ts": ts, "data": data}
         return data
-

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from fastapi import APIRouter
 
-from web_api.routes import clients, health, intel, reports, scene, settings, tools, trackers, stream, assistant, maintenance
+from web_api.routes import clients, health, intel, reports, scene, settings, tools, trackers, stream, assistant, maintenance, banking, application
 
 
 def build_router() -> APIRouter:
@@ -18,4 +18,6 @@ def build_router() -> APIRouter:
     router.include_router(stream.router)
     router.include_router(assistant.router)
     router.include_router(maintenance.router)
+    router.include_router(banking.router)
+    router.include_router(application.router)
     return router

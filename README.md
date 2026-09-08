@@ -1,11 +1,15 @@
 # Clear
 ![GitHub Created At](https://img.shields.io/github/created-at/denv3rr/clear) ![GitHub repo size](https://img.shields.io/github/repo-size/denv3rr/clear)
 
-A local-first portfolio, analytics, and basic OSINT platform with shared
-CLI, API, and web surfaces. It combines client/account data, deterministic
-financial calculations, tracker feeds, news/intel summaries, a
-rules-based assistant (add your own model connections and guardrails). **The globe dash
-is a *test* immersive viewer, not a finished operational surface. It's still pretty buggy.**
+A local-first advisory and client-management workspace with portfolio
+analytics and supporting OSINT. The dashboard opens on client relationships,
+deal pipeline and next actions. It includes DCF, trading comparables and saved
+valuation versions; World remains available from the Workspace menu.
+Dashboard and API development take priority; new advisory CLI parity is deferred.
+
+See [advisory/API guide](docs/banking_api.md), [valuation methods](docs/banking_valuation.md)
+and [product readiness gates](docs/advisory_product_plan.md). This is not a
+certified, hosted investment-banking platform; material production gates remain.
 
 ## Agents
 This is not a general multi-agent reasoning framework. Agent git rules and
@@ -81,12 +85,13 @@ fail instead of installing a missing hashed/locked dependency.
 
 - Stores client, account, holding, and lot data in SQLite, with JSON kept for
   import/export.
-- Exposes the same analytics through the CLI, FastAPI routes, and the web UI.
-- Runs OSINT workflows for trackers, news, and regional intel from the Overview
-  page, with `/osint` retained as a deep link.
+- Delivers advisory workflows through the dashboard and FastAPI; existing
+  portfolio analytics remain available in the CLI, with new CLI parity deferred.
+- Runs OSINT workflows for trackers, news, and regional intel through the
+  secondary Workspace menu and `/osint` deep link.
 - Supports reports and exports with shared view-models and provenance metadata.
-- Builds toward a globe-first presentation layer, but only behind the active
-  standards gate.
+- Plans richer navigable World maps behind the active source and standards
+  gates; advisory/client management remains the landing workspace.
 
 ## Stack
 

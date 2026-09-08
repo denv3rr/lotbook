@@ -1,5 +1,7 @@
 # API Contracts
 
+Advisory/valuation contracts: [banking_api.md](banking_api.md).
+
 This document summarizes core API contracts and shared response expectations.
 
 ## Conventions

@@ -28,6 +28,8 @@ const API_BASE = "http://127.0.0.1:8000";
 
 export default defineConfig({
   testDir: "./tests",
+  // Mutating acceptance tests require their disposable launcher configuration.
+  testIgnore: ["**/advisory.spec.ts"],
   timeout: 60000,
   expect: {
     timeout: 10000

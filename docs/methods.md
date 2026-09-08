@@ -1,5 +1,9 @@
 # Deterministic Methods
 
+See [banking_valuation.md](banking_valuation.md) for DCF and comparable-company
+methods and [advisory_math_verification.md](advisory_math_verification.md) for
+the September 2026 portfolio-history/undefined-metric corrections.
+
 This is the formula sheet for shared analytics in
 `modules/client_mgr/calculations.py` and the Markov snapshot in
 `modules/client_mgr/regime.py`. Empty or insufficient inputs return an

@@ -88,10 +88,16 @@ def pid_cmdline(pid: int) -> list[str]:
 
 
 def pid_matches(pid: int, tokens: Iterable[str]) -> bool:
+    tokens = list(tokens)
     cmdline = pid_cmdline(pid)
     if not cmdline:
         return False
     cmd_text = " ".join(cmdline)
+    if "web_api.server" in cmdline and any("web_api.app" in token for token in tokens):
+        try:
+            return Path(psutil.Process(pid).cwd()).resolve() == Path.cwd().resolve()
+        except (psutil.Error, OSError):
+            return False
     return all(token.lower() in cmd_text for token in tokens)
 
 

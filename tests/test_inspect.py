@@ -32,6 +32,16 @@ def test_all_inspection_roles_have_checklists():
         assert checklist, role
 
 
+def test_diff_scan_ignores_context_and_removal_but_preserves_added_claims():
+    claim = "Ship a general " + "multi-agent reasoning framework."
+    unchanged = "@@ -1,2 +1,2 @@\n " + claim + "\n-Old title\n+Advisory title"
+    assert inspect_mod.scan_artifact(inspect_mod.diff_added_text(unchanged)) == []
+    removed = "@@ -1 +1 @@\n-" + claim + "\n+Advisory title"
+    assert inspect_mod.scan_artifact(inspect_mod.diff_added_text(removed)) == []
+    introduced = "@@ -1 +1 @@\n-Old title\n+" + claim
+    assert inspect_mod.scan_artifact(inspect_mod.diff_added_text(introduced))
+
+
 def test_verify_rejects_fabricated_plan(tmp_path):
     plan = tmp_path / "bad-plan.md"
     plan.write_text("Implement a demo mode with fabricated success payloads.\n", encoding="utf-8")

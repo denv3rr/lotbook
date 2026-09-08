@@ -1,5 +1,14 @@
 # Web Tests
 
+Advisory acceptance (including real writes and safe stack shutdown) must use
+`npx playwright test --config playwright.advisory.config.ts`. It uses disposable
+SQLite data and the actual foreground launcher on ports 18080/15173. The default
+suite excludes this file to protect operator data. Arithmetic model inputs are
+explicit test inputs, not claimed company or market financials.
+
+Affected shell/auth/assistant/maintenance regressions can use the same isolation:
+`npx playwright test --config playwright.regression.config.ts`.
+
 Playwright end-to-end tests for the web UI.
 
 ## Run

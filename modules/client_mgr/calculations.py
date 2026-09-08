@@ -84,7 +84,7 @@ def calculate_max_drawdown(returns: pd.Series) -> Optional[float]:
     if returns.empty:
         return None
     cumulative_returns = (1 + returns).cumprod()
-    peak = cumulative_returns.expanding(min_periods=1).max()
+    peak = cumulative_returns.cummax().clip(lower=1.0)
     drawdown = (cumulative_returns - peak) / peak
     return float(drawdown.min())
 
@@ -174,7 +174,7 @@ def hurst_exponent(values: List[float]) -> Optional[float]:
             lags_used.append(lag)
 
     if len(rs_values) < 2:
-        return 0.5
+        return None
 
     slope = np.polyfit(np.log(lags_used), np.log(rs_values), 1)[0]
     hurst = float(slope)
@@ -410,23 +410,28 @@ def compute_risk_metrics(
 
             avg_p = float(p.mean())
             avg_m = float(m.mean())
-            alpha_annual = (avg_p - (rf_daily + (beta or 0.0) * (avg_m - rf_daily))) * ann_factor
-
-            corr = float(np.corrcoef(p.to_numpy(), m.to_numpy())[0][1])
-            r_squared = corr * corr
+            aligned_factor = annualization_factor_from_index(p)
+            aligned_rf = risk_free_annual / aligned_factor
+            aligned_std = float(p.std(ddof=1))
+            if beta is not None:
+                alpha_annual = (avg_p - (aligned_rf + beta * (avg_m - aligned_rf))) * aligned_factor
+            if var_m > 0 and aligned_std > 0:
+                corr = float(np.corrcoef(p.to_numpy(), m.to_numpy())[0][1])
+                r_squared = corr * corr if math.isfinite(corr) else None
 
             active_return = p - m
-            tracking_error = float(active_return.std(ddof=1)) * (ann_factor ** 0.5)
+            tracking_error = float(active_return.std(ddof=1)) * (aligned_factor ** 0.5)
             if tracking_error > 0:
-                information_ratio = float(active_return.mean()) * ann_factor / tracking_error
+                information_ratio = float(active_return.mean()) * aligned_factor / tracking_error
 
             if beta is not None and beta != 0:
-                treynor = (mean_annual - risk_free_annual) / beta
+                treynor = (avg_p * aligned_factor - risk_free_annual) / beta
 
-            if sharpe is not None:
+            if aligned_std > 0 and var_m > 0:
+                aligned_sharpe = (avg_p - aligned_rf) / aligned_std * aligned_factor ** 0.5
                 m_squared = (
                     risk_free_annual
-                    + sharpe * float(m.std(ddof=1)) * (ann_factor ** 0.5)
+                    + aligned_sharpe * float(m.std(ddof=1)) * (aligned_factor ** 0.5)
                 )
 
     return {

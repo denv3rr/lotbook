@@ -1,5 +1,15 @@
 # Visual Modernization Plan
 
+September 2026 product override: advisory/client management is the default
+landing workspace. World is an optional Workspace menu action, not the
+centerpiece. Globe-first proposals below apply only within the OSINT viewer;
+no new globe layers or relaxation of standards gates is authorized here.
+
+September 8 reference: `world_map_reference_plan.md` records the requested
+God's Eye View direction: navigable imagery/terrain and source-backed areas of
+interest, while retaining World as a secondary workspace. Provider intake and
+geometry truth gates still apply; a replacement tiled globe is not yet shipped.
+
 Status: Proposed on March 18, 2026. Execution is gated by
 `docs/standards_remediation_plan.md`.
 

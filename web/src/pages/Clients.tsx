@@ -1,4 +1,5 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { AreaSparkline, DistributionBars } from "../components/ui/Charts";
 import { Card } from "../components/ui/Card";
 import { Collapsible } from "../components/ui/Collapsible";
@@ -92,9 +93,9 @@ type SurfacePayload = {
 
 type PatternPayload = {
   error?: string;
-  entropy?: number;
-  perm_entropy?: number;
-  hurst?: number;
+  entropy?: number | null;
+  perm_entropy?: number | null;
+  hurst?: number | null;
   change_points?: number[];
   motifs?: { window: string; distance: number }[];
   vol_forecast?: number[];
@@ -109,8 +110,8 @@ type DashboardPayload = {
   interval: string;
   totals: {
     market_value: number;
-    manual_value: number;
-    total_value: number;
+    manual_value: number | null;
+    total_value: number | null;
     holdings_count: number;
     manual_count: number;
   };
@@ -214,6 +215,7 @@ const metricDefinitions: Record<string, {
 };
 
 export default function Clients() {
+  const [searchParams] = useSearchParams();
   const {
     data: index,
     error: indexError,
@@ -221,14 +223,15 @@ export default function Clients() {
     refresh: refreshIndex
   } = useApi<ClientIndex>("/api/clients", { interval: 60000 });
   const rows = index?.clients ?? [];
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [selectedId, setSelectedId] = useState<string | null>(searchParams.get("client"));
   const [detail, setDetail] = useState<ClientDetail | null>(null);
   const [detailError, setDetailError] = useState<string | null>(null);
   const [query, setQuery] = useState("");
   const [interval, setInterval] = useState("1M");
   const [selectedAccount, setSelectedAccount] = useState<string>("portfolio");  
   const [dashboard, setDashboard] = useState<DashboardPayload | null>(null);    
-  const [dashboardError, setDashboardError] = useState<string | null>(null);    
+  const [dashboardError, setDashboardError] = useState<string | null>(null);
+  const [dashboardLoading, setDashboardLoading] = useState(false);
   const [patterns, setPatterns] = useState<PatternPayload | null>(null);        
   const [patternsError, setPatternsError] = useState<string | null>(null);
   const [historyOpen, setHistoryOpen] = useState(true);
@@ -279,24 +282,25 @@ export default function Clients() {
   });
 
   useEffect(() => {
+    const controller = new AbortController();
+    setDetail(null);
+    setDetailError(null);
     if (!selectedId) {
-      setDetail(null);
-      setDetailError(null);
       return;
     }
-    apiGet<ClientDetail>(`/api/clients/${encodeURIComponent(selectedId)}`, 0)
+    apiGet<ClientDetail>(`/api/clients/${encodeURIComponent(selectedId)}`, 0, controller.signal)
       .then((payload) => {
+        if (controller.signal.aborted) return;
         setDetail(payload);
         setDetailError(null);
-        if (payload.accounts?.length && selectedAccount === "portfolio") {
-          setSelectedAccount("portfolio");
-        }
       })
       .catch((err) => {
+        if (controller.signal.aborted) return;
         setDetail(null);
         setDetailError(err instanceof Error ? err.message : "Client detail failed.");
       });
-  }, [selectedId, selectedAccount]);
+    return () => controller.abort();
+  }, [selectedId]);
 
   useEffect(() => {
     if (formMode !== "edit" || !detail) return;
@@ -332,6 +336,10 @@ export default function Clients() {
   }, [selectedAccount]);
 
   useEffect(() => {
+    const controller = new AbortController();
+    setDashboard(null);
+    setDashboardError(null);
+    setDashboardLoading(Boolean(selectedId));
     if (!selectedId) return;
     const path =
       selectedAccount === "portfolio"
@@ -339,35 +347,47 @@ export default function Clients() {
         : `/api/clients/${encodeURIComponent(selectedId)}/accounts/${encodeURIComponent(
             selectedAccount
           )}/dashboard?interval=${encodeURIComponent(interval)}`;
-    apiGet<DashboardPayload>(path, 0)
+    apiGet<DashboardPayload>(path, 0, controller.signal)
       .then((payload) => {
+        if (controller.signal.aborted) return;
         setDashboard(payload);
         setDashboardError(null);
       })
       .catch((err) => {
+        if (controller.signal.aborted) return;
         setDashboard(null);
         setDashboardError(err instanceof Error ? err.message : "Dashboard failed.");
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setDashboardLoading(false);
       });
+    return () => controller.abort();
   }, [selectedId, selectedAccount, interval, dashboardEpoch]);
 
   useEffect(() => {
-    if (!selectedId) return;
+    const controller = new AbortController();
+    setPatterns(null);
+    setPatternsError(null);
+    if (!selectedId || !patternOpen) return;
     const path =
       selectedAccount === "portfolio"
         ? `/api/clients/${encodeURIComponent(selectedId)}/patterns?interval=${encodeURIComponent(interval)}`
         : `/api/clients/${encodeURIComponent(selectedId)}/accounts/${encodeURIComponent(
             selectedAccount
           )}/patterns?interval=${encodeURIComponent(interval)}`;
-    apiGet<PatternPayload>(path, 0)
+    apiGet<PatternPayload>(path, 0, controller.signal)
       .then((payload) => {
+        if (controller.signal.aborted) return;
         setPatterns(payload);
         setPatternsError(null);
       })
       .catch((err) => {
+        if (controller.signal.aborted) return;
         setPatterns(null);
         setPatternsError(err instanceof Error ? err.message : "Pattern analysis failed.");
       });
-  }, [selectedId, selectedAccount, interval]);
+    return () => controller.abort();
+  }, [selectedId, selectedAccount, interval, patternOpen, dashboardEpoch]);
 
   const filtered = useMemo(() => {
     if (!query.trim()) return rows;
@@ -1334,9 +1354,11 @@ export default function Clients() {
                       <p key={warn}>{warn}</p>
                     ))}
                   </div>
-                ) : (
-                  <p className="mt-2">Realtime valuations active.</p>
-                )}
+                ) : null}
+                <p className="mt-2" role="status">{dashboardLoading ? "Loading market snapshot…" : dashboard ? "Snapshot data; provider prices may be delayed. Not a live quote stream." : "Market snapshot unavailable."}</p>
+                <button type="button" disabled={dashboardLoading} onClick={() => setDashboardEpoch(value => value + 1)} className="mt-2 rounded-full border border-slate-700 px-3 py-1 disabled:opacity-50">
+                  {dashboardLoading ? "Refreshing…" : "Refresh snapshot"}
+                </button>
               </div>
               <details className="portfolio-manage">
                 <summary>Manage client and accounts</summary>
@@ -1395,7 +1417,7 @@ export default function Clients() {
               <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-5">
                 <KpiCard
                   label="Total Value"
-                  value={`$${activeTotals.total_value.toFixed(2)}`}
+                  value={activeTotals.total_value == null ? "Unavailable" : `$${activeTotals.total_value.toFixed(2)}`}
                   tone="text-green-300"
                 />
                 <KpiCard
@@ -1405,7 +1427,7 @@ export default function Clients() {
                 />
                 <KpiCard
                   label="Manual Value"
-                  value={`$${activeTotals.manual_value.toFixed(2)}`}
+                  value={activeTotals.manual_value == null ? "Unavailable" : `$${activeTotals.manual_value.toFixed(2)}`}
                   tone="text-slate-100"
                 />
                 <KpiCard
@@ -1416,7 +1438,7 @@ export default function Clients() {
               </div>
             ) : (
               <div className="rounded-xl border border-slate-700 bg-slate-950/50 p-6 text-sm text-slate-300">
-                Loading portfolio snapshot...
+                {dashboardLoading ? "Loading portfolio snapshot..." : "Portfolio snapshot unavailable. Refresh to retry."}
               </div>
             )
           ) : null}
@@ -1633,12 +1655,13 @@ export default function Clients() {
 
               <Collapsible
                 title="Pattern Analysis"
-                meta={patterns?.error ? "Offline" : "Active"}
+                meta={!patternOpen ? "Load on demand" : patternsError || patterns?.error ? "Unavailable" : patterns ? "Snapshot analysis" : "Loading…"}
                 open={patternOpen}
+                mountWhenOpen
                 onToggle={() => setPatternOpen((prev) => !prev)}
               >
-            {patterns?.error ? (
-              <p className="text-xs text-amber-300">{patterns.error}</p>
+            {!patterns && !patternsError ? <p className="text-xs text-slate-300" role="status">Loading pattern analysis…</p> : patternsError || patterns?.error ? (
+              <p className="text-xs text-amber-300">{patternsError || patterns?.error}</p>
             ) : (
               <div className="space-y-4">
                 <VisualizationGuide
@@ -1650,9 +1673,9 @@ export default function Clients() {
                   ]}
                 />
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 text-xs text-slate-100">
-                  <KpiCard label="Return Irregularity (Entropy)" value={patterns?.entropy !== undefined ? patterns.entropy.toFixed(3) : "—"} tone="text-green-300" />
-                  <KpiCard label="Sequence Irregularity (Permutation Entropy)" value={patterns?.perm_entropy !== undefined ? patterns.perm_entropy.toFixed(3) : "—"} tone="text-slate-100" />
-                  <KpiCard label="Persistence Tendency (Hurst)" value={patterns?.hurst !== undefined ? patterns.hurst.toFixed(3) : "—"} tone="text-slate-100" />
+                  <KpiCard label="Return Irregularity (Entropy)" value={patterns?.entropy != null ? patterns.entropy.toFixed(3) : "—"} tone="text-green-300" />
+                  <KpiCard label="Sequence Irregularity (Permutation Entropy)" value={patterns?.perm_entropy != null ? patterns.perm_entropy.toFixed(3) : "—"} tone="text-slate-100" />
+                  <KpiCard label="Persistence Tendency (Hurst)" value={patterns?.hurst != null ? patterns.hurst.toFixed(3) : "—"} tone="text-slate-100" />
                 </div>
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
                   <Surface3D

@@ -110,6 +110,15 @@ def _read_diff(git_range: str) -> str:
     return completed.stdout
 
 
+def diff_added_text(text: str) -> str:
+    """Artifact rules judge additions, not removed lines or unchanged context.
+
+    Whole-repository guardrail scanning and human diff review still cover the
+    resulting tree. A diff-context phrase is not an introduced artifact claim.
+    """
+    return "\n".join(line[1:] for line in text.splitlines() if line.startswith("+") and not line.startswith("+++"))
+
+
 def build_record(args: argparse.Namespace) -> dict[str, object]:
     corpus = verify_corpus()
     roles = ROLE_IDS if args.role == "all" else (args.role,)
@@ -139,7 +148,7 @@ def build_record(args: argparse.Namespace) -> dict[str, object]:
     if args.diff:
         text = _read_diff(args.diff)
         artifacts.append({"kind": "diff", "range": args.diff})
-        combined_text += text + "\n"
+        combined_text += diff_added_text(text) + "\n"
 
     artifact_hits = scan_artifact(combined_text) if combined_text else []
     guardrails = run_guardrail_scan()

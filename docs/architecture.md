@@ -4,9 +4,16 @@ These standards keep CLI, API, and web UI modular and future-proof.
 
 ## Product boundary
 
-Clear is a local-first portfolio, analytics, and OSINT platform with a
+Clear is a local-first advisory, client-management, portfolio, analytics, and OSINT platform with a
 rules-based assistant surface. It is not a general multi-agent reasoning
 framework, model-training system, or autonomous dispatcher.
+
+September 2026: advisory workflow contracts and immutable valuation snapshots
+live in `modules/banking`, with thin routes in `web_api/routes/banking.py`.
+The dashboard is the primary workbench; CLI feature parity is deferred by
+explicit product direction. Additive SQLite tables share existing client IDs.
+The managed web server owns safe application-requested shutdown; per-launch
+PID/creation-time records constrain cleanup to its own process identities.
 
 Governed agent work is seeded by:
 

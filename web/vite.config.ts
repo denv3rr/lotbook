@@ -1,9 +1,19 @@
-import { defineConfig } from "vite";
+import { defineConfig, loadEnv } from "vite";
 import react from "@vitejs/plugin-react";
 
-export default defineConfig({
+export default defineConfig(({ mode }) => {
+  const env = { ...loadEnv(mode, process.cwd(), "VITE_"), ...process.env };
+  const api = new URL(env.VITE_API_BASE || "http://127.0.0.1:8000");
+  if (!["http:", "https:"].includes(api.protocol)) throw new Error("VITE_API_BASE must use HTTP or HTTPS.");
+  const socketOrigin = api.origin.replace(/^http/, "ws");
+  return {
   base: process.env.VITE_BASE || "/",
-  plugins: [react()],
+  plugins: [react(), {
+    name: "clear-api-csp",
+    transformIndexHtml(html) {
+      return html.replace("connect-src 'self'", `connect-src 'self' ${api.origin} ${socketOrigin}`);
+    }
+  }],
   build: {
     modulePreload: {
       resolveDependencies(_filename, deps) {
@@ -74,4 +84,5 @@ export default defineConfig({
   server: {
     port: 5173
   }
+  };
 });
