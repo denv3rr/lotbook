@@ -20,8 +20,8 @@ analytics, provider data or suitability for a particular investment decision.
   not an inclusive 365-day threshold. See [IRS Publication 550](https://www.irs.gov/publications/p550).
 
 Deterministic arithmetic examples are unit evidence only. The full Python
-suite passed 319 tests before subsequent advisory/shutdown additions; rerun
-the suite for final release evidence.
+suite passed 341 tests after advisory/shutdown additions and integration with
+main on September 8, 2026. This is regression evidence, not model certification.
 
 Still open: reviewed market-price currency coverage, cash-flow-adjusted
 account performance, comprehensive tax modeling and remaining legacy manual

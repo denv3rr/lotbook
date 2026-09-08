@@ -1,6 +1,6 @@
 # Advisory and client management product plan
 
-Updated September 7, 2026. Investment banking advisory is the primary
+Updated September 8, 2026. Investment banking advisory is the primary
 workspace; wealth and portfolio management remain alongside it. The web
 dashboard and API are the delivery surfaces. New CLI parity is deferred.
 
@@ -37,6 +37,18 @@ workflow to advisory work; it does not close the older standards backlog.
 
 ## Subsequent release work
 
+Loading follow-through: client detail no longer reloads on account changes;
+obsolete profile/dashboard/pattern requests are cancelled and ignored. Pattern
+analysis and its 3D surfaces load only when expanded. Snapshot refresh is
+explicitly labeled, not presented as live quotes. This reduces unnecessary work
+but does not establish a market-provider latency guarantee. Next investigate
+shared quote caching, request coalescing and provider-supported incremental
+updates with observed timestamps, rate limits and subscription rights. Polling
+and interpolated positions must not be labeled live market streaming.
+
+World direction is captured in `world_map_reference_plan.md`; no new imagery
+provider or map engine is included in this advisory pass.
+
 1. Expand modeling with reviewed financial statement and peer-data intake,
    precedent valuations, capital structure, merger and sponsor models, and
    versioned model review/approval. Do not imply these exist in the first build.
@@ -52,11 +64,13 @@ tests. Each release needs evidence for its actual deployment and workflows.
 
 ## This pass verification
 
-- Python: 333 tests passed; deterministic model tests are arithmetic evidence only.
-- Real isolated browser: four acceptance flows passed, including saved DCF and
-  comparable models, revision lineage, mobile no-overflow and keyboard dialogs.
+- Python: 341 tests passed after integration with main; deterministic model
+  tests are arithmetic evidence only.
+- Real isolated browser: five acceptance flows passed, including saved DCF and
+  comparable models, revision lineage, mobile no-overflow, keyboard dialogs,
+  deferred pattern requests and profile reuse across account scopes.
 - Idle close: API/UI listeners, recorded API/UI/launcher processes and observed
-  descendants all exited; control record reported stopped in 2.166 seconds on
+  descendants all exited; control record reported stopped in 1.149 seconds on
   the verified Windows run. Active work can require additional drain time.
 - TypeScript, production build and bundle budgets passed. Existing async-heavy
   chunk size/circular-chunk and stale Browserslist warnings remain.

@@ -123,6 +123,40 @@ test("mobile layout, World menu and valuation validation", async ({ page }) => {
   await page.screenshot({ path: "test-results/advisory-mobile.png", fullPage: true });
 });
 
+test("client profile loads independently and hidden pattern analysis stays idle", async ({ page, request }) => {
+  const api = "http://127.0.0.1:18080";
+  const headers = { "X-API-Key": "isolated-browser-verification" };
+  const indexResponse = await request.get(`${api}/api/clients`, { headers });
+  expect(indexResponse.ok()).toBeTruthy();
+  const client = (await indexResponse.json()).clients.find((row: { name: string }) => row.name === "Clear browser verification");
+  expect(client).toBeTruthy();
+  const accountResponse = await request.post(`${api}/api/clients/${client.client_id}/accounts`, { headers, data: { account_name: "Isolated loading verification", account_type: "Taxable", holdings: {} } });
+  expect(accountResponse.ok(), await accountResponse.text()).toBeTruthy();
+  const account = (await accountResponse.json()).account;
+  const profilePath = `/api/clients/${client.client_id}`;
+  const observed: string[] = [];
+  const failures: string[] = [];
+  page.on("request", req => observed.push(new URL(req.url()).pathname));
+  page.on("pageerror", error => failures.push(error.message));
+  await page.goto(`/clients?client=${encodeURIComponent(client.client_id)}`);
+  await expect(page.getByRole("button", { name: /Client Profile Clear browser verification/ })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Refresh snapshot", exact: true })).toBeEnabled();
+  expect(observed.filter(url => url.endsWith("/patterns"))).toEqual([]);
+  await expect(page.getByText("Return History Surface", { exact: true })).toHaveCount(0);
+  const profileLoads = observed.filter(url => url === profilePath).length;
+  const accountDashboard = page.waitForResponse(response => new URL(response.url()).pathname === `${profilePath}/accounts/${account.account_id}/dashboard`);
+  await page.getByLabel("Portfolio scope").selectOption(account.account_id);
+  await accountDashboard;
+  await expect(page.getByRole("button", { name: "Refresh snapshot", exact: true })).toBeEnabled();
+  expect(observed.filter(url => url === profilePath)).toHaveLength(profileLoads);
+  expect(observed.filter(url => url.endsWith("/patterns"))).toEqual([]);
+  const patternRequest = page.waitForRequest(req => new URL(req.url()).pathname.endsWith("/patterns"));
+  await page.getByRole("button", { name: /Pattern Analysis Load on demand/ }).click();
+  await patternRequest;
+  await expect(page.getByText("Realtime valuations active.", { exact: true })).toHaveCount(0);
+  expect(failures).toEqual([]);
+});
+
 function isListening(port: number): Promise<boolean> {
   return new Promise(resolve => { const socket = net.createConnection({ host: "127.0.0.1", port }); socket.setTimeout(500); socket.once("connect", () => { socket.destroy(); resolve(true); }); socket.once("error", () => resolve(false)); socket.once("timeout", () => { socket.destroy(); resolve(false); }); });
 }
