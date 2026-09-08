@@ -5,11 +5,11 @@ The user-facing workspace is labeled **World**. It groups trackers, regional
 signals, and news into a single surface while keeping `/osint` as the technical
 deep-link route.
 
-The World workspace is embedded on the Overview page below the top
-client/account context and is visible by default. The fused World globe opens
-automatically on the Overview page and carries client/account context inside
-the globe UI so the main page stays globe-first without separating portfolio
-scope from global signals.
+Advisory/client management is the landing workspace. Open the fused globe
+explicitly with **Workspace > Open World**, or use `/osint` for the detailed
+OSINT panels. World does not open automatically on the advisory dashboard.
+The map modernization direction and source gates are documented in
+`world_map_reference_plan.md`.
 
 The tracker module provides live aviation and maritime activity, but remains
 opt-in for reports and should only surface when it matches account relevance

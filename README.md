@@ -85,12 +85,13 @@ fail instead of installing a missing hashed/locked dependency.
 
 - Stores client, account, holding, and lot data in SQLite, with JSON kept for
   import/export.
-- Exposes the same analytics through the CLI, FastAPI routes, and the web UI.
-- Runs OSINT workflows for trackers, news, and regional intel from the Overview
-  page, with `/osint` retained as a deep link.
+- Delivers advisory workflows through the dashboard and FastAPI; existing
+  portfolio analytics remain available in the CLI, with new CLI parity deferred.
+- Runs OSINT workflows for trackers, news, and regional intel through the
+  secondary Workspace menu and `/osint` deep link.
 - Supports reports and exports with shared view-models and provenance metadata.
-- Builds toward a globe-first presentation layer, but only behind the active
-  standards gate.
+- Plans richer navigable World maps behind the active source and standards
+  gates; advisory/client management remains the landing workspace.
 
 ## Stack
 
