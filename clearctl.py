@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import argparse
 import atexit
-import importlib.util
 import json
 import logging
 import os
@@ -13,6 +12,14 @@ import sys
 import time
 from pathlib import Path
 from typing import Iterable, Optional
+
+from clear_bootstrap import REPO_ROOT, ensure_runtime_dependencies, missing_runtime_modules
+
+os.chdir(REPO_ROOT)
+if __name__ == "__main__" and not ensure_runtime_dependencies(
+    auto_install="--no-install" not in sys.argv[1:]
+):
+    raise SystemExit(1)
 
 import httpx
 import psutil
@@ -79,48 +86,11 @@ def _print_header() -> None:
 
 
 def _python_deps_ready(auto_yes: bool) -> bool:
-    missing = []
-    for pkg in ("fastapi", "uvicorn", "httpx"):
-        if importlib.util.find_spec(pkg) is None:
-            missing.append(pkg)
+    missing = missing_runtime_modules()
     if not missing:
         return True
     print(">> Missing Python dependencies:", ", ".join(missing))
-    if not auto_yes:
-        print(">> Aborted. Install dependencies then retry.")
-        return False
-    requirements = Path("requirements.txt")
-    if not requirements.exists():
-        print(">> requirements.txt missing. Refusing unverified install.")
-        return False
-    has_hashes = False
-    for line in requirements.read_text(encoding="utf-8", errors="ignore").splitlines():
-        text = line.strip()
-        if not text or text.startswith("#"):
-            continue
-        if "--hash=" in text:
-            has_hashes = True
-            break
-    if not has_hashes:
-        print(">> requirements.txt missing hashes. Refusing unverified install.")
-        print(">> Provide hashes (pip-compile --generate-hashes) before auto-install.")
-        return False
-    try:
-        subprocess.check_call(
-            [
-                sys.executable,
-                "-m",
-                "pip",
-                "install",
-                "--require-hashes",
-                "-r",
-                "requirements.txt",
-            ]
-        )
-        return True
-    except Exception:
-        print(">> Python dependency install failed. Fix pip setup and retry.")
-        return False
+    return ensure_runtime_dependencies(auto_install=auto_yes)
 
 
 def _candidate_paths() -> list[str]:
@@ -330,7 +300,8 @@ def _install_shutdown_handlers(args: argparse.Namespace) -> None:
     for sig in (signal.SIGINT, signal.SIGTERM):
         try:
             signal.signal(sig, _handle_signal)
-        except Exception:
+        except (OSError, ValueError) as exc:
+            LOGGER.warning("Shutdown signal handler unavailable: %s", exc)
             continue
     atexit.register(lambda: _stop(args) if _ACTIVE_ARGS is args else None)
     install_windows_console_handler(lambda: _stop(args))

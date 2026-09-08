@@ -9,20 +9,29 @@ This document summarizes launcher behavior to keep startup/stop flows reliable a
 - `.\clear` is the no-setup PowerShell form from the repository directory.
 - `clear stop` stops background services and verifies port release.
 - `clear cli` launches the CLI.
-- `python clearctl.py start` remains the explicit automation/CI form.
+- `python clear_bootstrap.py start` is the explicit automation/CI form when
+  automatic verified dependency bootstrap is desired.
 
-Running `clearctl.py` without a subcommand is equivalent to `start`. Start mode
-automatically installs approved hashed/locked dependencies only when they are
-missing. Startup flags can be passed without repeating the subcommand, such as
-`clear --detach --no-open`; `--no-install` makes missing dependencies a hard
-stop instead. Normal starts reuse the existing environment, and Vite compiles
-changed frontend modules incrementally. No manual production build is required
-for local use.
+Running `clear_bootstrap.py` without a subcommand is equivalent to `start`. The
+standard-library bootstrap changes to the repository root before importing the
+application and installs approved runtime dependencies from the hash-verified
+`requirements-web.lock` only when they are missing. Startup flags can be passed
+without repeating the subcommand, such as `clear --detach --no-open`;
+`--no-install` makes missing dependencies a hard stop instead. Normal starts
+reuse the existing environment, and Vite compiles changed frontend modules
+incrementally. No manual production build is required for local use.
+
+`requirements-web.in` is the reviewed direct-pin source for the launcher lock.
+After an approved runtime pin change, regenerate it with
+`python -m piptools compile --generate-hashes --resolver=backtracking
+--strip-extras --output-file requirements-web.lock requirements-web.in`; the
+test suite checks that these pins remain aligned with `requirements.txt`.
 
 PowerShell reserves `clear` as a built-in terminal-clearing alias. The explicit
 `.\clear.ps1 install-command` setup replaces that alias in the current-user
 profile with the Clear launcher. `Clear-Host` and `cls` remain available, and
-the setup can be rerun safely to refresh the checkout path.
+the command can be run from any working directory. The setup can be rerun
+safely to refresh the checkout path.
 
 ## Startup Guarantees
 - Startup performs API health checks and fails fast if the API cannot come up.

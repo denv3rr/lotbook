@@ -42,10 +42,11 @@ Copy `.env.example` to `.env`. The most common variables are below.
 
 ### Start with one command
 
-Clear's launcher installs missing approved dependencies only when needed, starts
-the API and web UI, waits for health checks, and opens the application. Vite
-compiles the frontend incrementally, so normal starts do not require a manual
-`npm run build` or rebuild the application from scratch.
+Clear's standard-library bootstrap installs missing approved web/API runtime
+dependencies from the hash-verified `requirements-web.lock` only when needed,
+starts the API and web UI, waits for health checks, and opens the application.
+Vite compiles the frontend incrementally, so normal starts do not require a
+manual `npm run build` or rebuild the application from scratch.
 
 From the repository directory:
 
@@ -73,7 +74,8 @@ clear stop
 
 The setup keeps `Clear-Host` and `cls` available for clearing the terminal. It
 stores the absolute repository path in the current-user PowerShell profile, so
-rerun the setup command if the checkout is moved.
+the installed `clear` command works from any directory. Rerun the setup command
+if the checkout is moved.
 
 Optional startup flags can follow the command directly—for example,
 `clear --detach --no-open`. Use `clear --no-install` when you want startup to
@@ -121,8 +123,8 @@ clear logs
 ```
 
 Without the optional PowerShell command setup, use the same arguments with
-`.\clear`, for example `.\clear doctor`. The underlying
-`python clearctl.py start` command remains available for automation and CI.
+`.\clear`, for example `.\clear doctor`. Use `python clear_bootstrap.py start`
+for automation that should retain the same verified dependency bootstrap.
 
 ## Testing
 

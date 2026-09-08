@@ -16,6 +16,7 @@ const CRYPTO_DB_STORE = "keys";
 const CRYPTO_KEY_ID = "api-key-encryption-v1";
 
 let sessionCryptoKeyPromise: Promise<CryptoKey> | null = null;
+let runtimeApiKey: string | null = null;
 
 function openCryptoKeyDatabase(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
@@ -34,27 +35,30 @@ function openCryptoKeyDatabase(): Promise<IDBDatabase> {
   });
 }
 
-async function readStoredCryptoKey(): Promise<CryptoKey | null> {
+async function getOrCreateStoredCryptoKey(): Promise<CryptoKey> {
+  const generated = await crypto.subtle.generateKey(
+    { name: "AES-GCM", length: 256 },
+    false,
+    ["encrypt", "decrypt"]
+  );
   const database = await openCryptoKeyDatabase();
   try {
     return await new Promise((resolve, reject) => {
-      const transaction = database.transaction(CRYPTO_DB_STORE, "readonly");
-      const request = transaction.objectStore(CRYPTO_DB_STORE).get(CRYPTO_KEY_ID);
-      request.onsuccess = () => resolve((request.result as CryptoKey | undefined) || null);
-      request.onerror = () => reject(request.error || new Error("Could not read encrypted browser storage."));
-    });
-  } finally {
-    database.close();
-  }
-}
-
-async function writeStoredCryptoKey(key: CryptoKey): Promise<void> {
-  const database = await openCryptoKeyDatabase();
-  try {
-    await new Promise<void>((resolve, reject) => {
+      let selected: CryptoKey | null = null;
       const transaction = database.transaction(CRYPTO_DB_STORE, "readwrite");
-      transaction.objectStore(CRYPTO_DB_STORE).put(key, CRYPTO_KEY_ID);
-      transaction.oncomplete = () => resolve();
+      const request = transaction.objectStore(CRYPTO_DB_STORE).get(CRYPTO_KEY_ID);
+      request.onsuccess = () => {
+        const existing = (request.result as CryptoKey | undefined) || null;
+        selected = existing || generated;
+        if (!existing) {
+          transaction.objectStore(CRYPTO_DB_STORE).put(generated, CRYPTO_KEY_ID);
+        }
+      };
+      request.onerror = () => reject(request.error || new Error("Could not read encrypted browser storage."));
+      transaction.oncomplete = () => {
+        if (selected) resolve(selected);
+        else reject(new Error("Encrypted browser storage returned no key."));
+      };
       transaction.onerror = () => reject(transaction.error || new Error("Could not save encrypted browser storage."));
       transaction.onabort = () => reject(transaction.error || new Error("Encrypted browser storage was cancelled."));
     });
@@ -65,17 +69,7 @@ async function writeStoredCryptoKey(key: CryptoKey): Promise<void> {
 
 function getStorageCryptoKey(): Promise<CryptoKey> {
   if (!sessionCryptoKeyPromise) {
-    sessionCryptoKeyPromise = (async () => {
-      const stored = await readStoredCryptoKey();
-      if (stored) return stored;
-      const generated = await crypto.subtle.generateKey(
-        { name: "AES-GCM", length: 256 },
-        false,
-        ["encrypt", "decrypt"]
-      );
-      await writeStoredCryptoKey(generated);
-      return generated;
-    })().catch((error) => {
+    sessionCryptoKeyPromise = getOrCreateStoredCryptoKey().catch((error) => {
       sessionCryptoKeyPromise = null;
       throw error;
     });
@@ -118,7 +112,7 @@ async function decryptApiKey(payload: string): Promise<string | null> {
   return new TextDecoder().decode(plaintext);
 }
 
-type ApiKeyScope = "session" | "local" | "env" | "none";
+export type ApiKeyScope = "memory" | "session" | "local" | "env" | "none";
 
 export function getApiBase(): string {
   return API_BASE;
@@ -158,6 +152,7 @@ async function parseJson<T>(response: Response): Promise<T> {
 }
 
 export async function getApiKey(): Promise<string | null> {
+  if (runtimeApiKey) return runtimeApiKey;
   try {
     const sessionValue = sessionStorage.getItem(SESSION_KEY);
     if (sessionValue) {
@@ -169,6 +164,11 @@ export async function getApiKey(): Promise<string | null> {
       }
     }
 
+  } catch {
+    // Continue to device storage when session storage is blocked.
+  }
+
+  try {
     const localValue = localStorage.getItem(LOCAL_KEY);
     if (localValue) {
       try {
@@ -179,18 +179,23 @@ export async function getApiKey(): Promise<string | null> {
       }
     }
 
-    return ENV_API_KEY || null;
   } catch {
-    return ENV_API_KEY || null;
+    // Environment configuration remains available when device storage is blocked.
   }
+  return ENV_API_KEY || null;
 }
 
 export function getApiKeyScope(): ApiKeyScope {
+  if (runtimeApiKey) return "memory";
   try {
     if (sessionStorage.getItem(SESSION_KEY)) return "session";
+  } catch {
+    // Continue to device storage when session storage is blocked.
+  }
+  try {
     if (localStorage.getItem(LOCAL_KEY)) return "local";
   } catch {
-    return ENV_API_KEY ? "env" : "none";
+    // Environment configuration remains available when device storage is blocked.
   }
   return ENV_API_KEY ? "env" : "none";
 }
@@ -198,27 +203,60 @@ export function getApiKeyScope(): ApiKeyScope {
 export async function setApiKey(
   value: string,
   options: { persist?: boolean } = {}
-): Promise<void> {
+): Promise<ApiKeyScope> {
   try {
-    localStorage.removeItem(LOCAL_KEY);
-    sessionStorage.removeItem(SESSION_KEY);
     const encrypted = await encryptApiKey(value);
     if (options.persist) {
       localStorage.setItem(LOCAL_KEY, encrypted);
+      try {
+        sessionStorage.removeItem(SESSION_KEY);
+      } catch {
+        // The newly persisted key remains authoritative.
+      }
+      runtimeApiKey = null;
+      return "local";
     } else {
       sessionStorage.setItem(SESSION_KEY, encrypted);
+      try {
+        localStorage.removeItem(LOCAL_KEY);
+      } catch {
+        // The newly saved session key remains authoritative.
+      }
+      runtimeApiKey = null;
+      return "session";
     }
   } catch {
-    return;
+    if (options.persist) {
+      throw new Error(
+        "The key could not be stored on this device. Browser encrypted storage may be unavailable; the previous key was left unchanged."
+      );
+    }
+    runtimeApiKey = value;
+    try {
+      localStorage.removeItem(LOCAL_KEY);
+    } catch {
+      // Page-memory storage remains available even when browser storage is blocked.
+    }
+    try {
+      sessionStorage.removeItem(SESSION_KEY);
+    } catch {
+      // Page-memory storage remains available even when browser storage is blocked.
+    }
+    return "memory";
   }
 }
 
 export function clearApiKey(): void {
+  runtimeApiKey = null;
   try {
     localStorage.removeItem(LOCAL_KEY);
+  } catch {
+    // Continue clearing independent storage scopes.
+  }
+  try {
     sessionStorage.removeItem(SESSION_KEY);
   } catch {
-    return;
+    // Page memory has still been cleared.
   }
 }
 
@@ -229,6 +267,9 @@ export function getAuthHint(): string {
   }
   if (scope === "local" || scope === "session") {
     return "Check the API key in System settings or clear and re-enter it.";
+  }
+  if (scope === "memory") {
+    return "The API key is active for this page only. Re-enter it after a reload.";
   }
   return "Set an API key in System settings if CLEAR_WEB_API_KEY is enabled.";
 }

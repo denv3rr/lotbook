@@ -30,6 +30,11 @@ CodeQL follow-up on PRs 14 and 31:
 - HTTP requests and the WebSocket subprotocol await key recovery before they
   connect. This corrects the merged PR 31 regression where the asynchronous
   decrypt operation could be coerced into an invalid header or protocol value.
+- First-use key creation is atomic within one IndexedDB read/write transaction,
+  so concurrent tabs cannot overwrite one another's encryption key. Persistent
+  storage failures are shown to the operator and do not close the settings
+  dialog. Session-only entry can fall back to page memory with an explicit
+  warning when encrypted browser storage is unavailable.
 - Route handlers no longer interpolate exception objects into API warnings.
   Failures are logged server-side and the client sees a generic unavailable
   message.

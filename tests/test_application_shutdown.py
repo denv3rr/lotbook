@@ -12,6 +12,23 @@ from utils.stack_control import own_control, prepare_control, record_process, st
 from web_api.routes.application import router
 
 
+def test_control_replacement_keeps_previous_marker_readable_until_commit(tmp_path, monkeypatch):
+    import json
+    from pathlib import Path
+    from utils.stack_control import shutdown_requested, write_control
+    control = tmp_path / "stack-test.json"
+    write_control(control, {"shutdown_requested": True})
+    original_replace = Path.replace
+    def check_old_state(temporary, target):
+        assert shutdown_requested(control)
+        assert "shutdown_result" not in json.loads(control.read_text())
+        return original_replace(temporary, target)
+    monkeypatch.setattr(Path, "replace", check_old_state)
+    write_control(control, {"shutdown_requested": True, "shutdown_result": "stopped"})
+    assert json.loads(control.read_text())["shutdown_result"] == "stopped"
+    assert not list(tmp_path.glob("*.tmp"))
+
+
 def test_shutdown_requires_key_loopback_confirmation_header_and_origin(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
     monkeypatch.setenv("CLEAR_WEB_API_KEY", "unit-shutdown-key")

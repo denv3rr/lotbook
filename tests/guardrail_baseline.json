@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "count": 198,
+  "count": 196,
   "findings": [
     {
       "id": "bare_except:interfaces/settings.py:77a003da5dab",
@@ -65,14 +65,6 @@
       "line": 247,
       "detail": "except Exception:",
       "occurrence": 5
-    },
-    {
-      "id": "logged_broad_except:clearctl.py:f81fe9c1ff57",
-      "rule": "logged_broad_except",
-      "path": "clearctl.py",
-      "line": 261,
-      "detail": "except Exception:",
-      "occurrence": 6
     },
     {
       "id": "logged_broad_except:core/db_management.py:ab474796e5c3",
@@ -1383,14 +1375,6 @@
       "rule": "logged_broad_except",
       "path": "web_api/routes/settings.py",
       "line": 26,
-      "detail": "except Exception:",
-      "occurrence": 1
-    },
-    {
-      "id": "silent_except:clearctl.py:192c0b399365",
-      "rule": "silent_except",
-      "path": "clearctl.py",
-      "line": 329,
       "detail": "except Exception:",
       "occurrence": 1
     },

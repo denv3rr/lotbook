@@ -723,6 +723,12 @@ What landed:
 - feature detail rows now expose source, layer, display scope, coverage,
   warnings, and display notes when those fields are present in the real
   payload
+- theater aliases now match on word boundaries, and conflict highlights derive
+  theater placement and supporting headlines only from conflict-classified
+  evidence rather than unrelated regional news
+- centroid highlights are selectable objects in their own right; selection
+  keeps the pulse coordinates, channel, theater, warnings, and display note in
+  the contextual inspector while retaining the parent region as provenance
 - globe controls gained `aria-pressed` and stronger focus-visible treatment,
   and scene warnings can expand beyond the first three entries
 - Vite and the bundle guardrail now block heavy async visual domains from being

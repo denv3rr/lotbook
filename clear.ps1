@@ -49,4 +49,4 @@ $markerEnd
   return
 }
 
-python "$PSScriptRoot\clearctl.py" @Args
+python "$PSScriptRoot\clear_bootstrap.py" @Args

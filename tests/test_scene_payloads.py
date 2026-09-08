@@ -397,6 +397,78 @@ def test_conflict_pulse_uses_ukraine_theater_not_germany_centroid():
     assert europe_centroid_conflict == []
 
 
+def test_conflict_pulse_ignores_locations_from_non_conflict_news():
+    class DummyWeather:
+        def fetch(self, region):
+            return {"error": "offline"}
+
+    class DummyConflict:
+        def fetch(self, region):
+            return {"error": "offline", "cooldown": True}
+
+    class DummyIntel:
+        def __init__(self):
+            self.weather = DummyWeather()
+            self.conflict = DummyConflict()
+
+        def fetch_news_signals(self, ttl_seconds=600, enabled_sources=None):
+            return {
+                "items": [
+                    {
+                        "title": "Ukraine technology exports expand",
+                        "source": "Market Wire",
+                        "published_ts": 1700000000,
+                        "regions": ["Europe"],
+                        "industries": ["technology"],
+                        "event_tags": ["trade"],
+                        "categories": ["business"],
+                    },
+                    {
+                        "title": "European conflict monitoring continues",
+                        "source": "Reuters",
+                        "published_ts": 1700000001,
+                        "regions": ["Europe"],
+                        "industries": ["shipping"],
+                        "event_tags": ["conflict"],
+                        "categories": ["conflict"],
+                    },
+                ],
+                "cached": True,
+                "stale": False,
+                "skipped": [],
+                "health": {},
+            }
+
+        def filter_news_items(self, items, region_name, industry_filter, tickers=None):
+            return [item for item in items if region_name in (item.get("regions") or [])]
+
+        def _filter_impacts(self, impacts, industry_filter):
+            return impacts
+
+    scene = build_intel_scene(DummyIntel(), now=1700000400)
+    pulse_layers = {
+        layer["id"]: layer["features"]
+        for layer in scene["layers"]
+        if layer["kind"] == "pulse"
+    }
+    conflict_pulses = [
+        feature
+        for feature in pulse_layers["regional-conflict-overlays"]
+        if feature["properties"].get("region") == "Europe"
+    ]
+    assert len(conflict_pulses) == 1
+    assert conflict_pulses[0]["properties"].get("theater") is None
+    assert conflict_pulses[0]["geometry"]["coordinates"] == [10.0, 50.0]
+    assert conflict_pulses[0]["properties"]["headlines"][0]["title"].startswith("European conflict")
+    news_pulses = [
+        feature
+        for feature in pulse_layers["regional-signal-overlays"]
+        if feature["properties"].get("channel") == "news"
+        and feature["properties"].get("region") == "Europe"
+    ]
+    assert any(feature["properties"].get("theater") == "Ukraine" for feature in news_pulses)
+
+
 def test_build_overview_scene_combines_tracker_and_intel_layers():
     snapshot = {
         "mode": "combined",

@@ -1072,7 +1072,6 @@ function HotspotPulse({
     0.3,
     Math.min(1, getNumericValue(presentation?.pulse_intensity) ?? 0.55)
   );
-  const targetId = String(properties?.target_id || feature.id.replace(/^pulse:/, ""));
   const position = useMemo(() => {
     if (coords.length < 2) {
       return new THREE.Vector3(0, 0, 0);
@@ -1108,7 +1107,7 @@ function HotspotPulse({
       position={position}
       onClick={(event) => {
         event.stopPropagation();
-        onSelect(targetId);
+        onSelect(feature.id);
       }}
     >
       <mesh ref={outerRef}>
@@ -1447,7 +1446,7 @@ function GlobeScene({
                   feature={feature}
                   onSelect={onSelect}
                   reducedMotion={reducedMotion}
-                  selected={selectedId === String(asRecord(feature.properties)?.target_id || feature.id.replace(/^pulse:/, ""))}
+                  selected={selectedId === feature.id}
                 />
               ))
             : null}
@@ -1691,13 +1690,30 @@ export function GlobeOverlay() {
   const scenePending = isOpen && !scene && !sceneUnavailable;
 
   const visibleFocusTargets = useMemo(
-    () =>
-      (scene?.focus_targets || []).filter((target) => {
+    () => {
+      const primaryTargets = (scene?.focus_targets || []).filter((target) => {
         if (target.domain === "intel") return sceneState.showIntelRegions;
         if (target.domain === "trackers") return sceneState.showTrackerPoints;
         return true;
-      }),
-    [scene, sceneState.showIntelRegions, sceneState.showTrackerPoints]
+      });
+      const pulseTargets = visiblePulseFeatures.flatMap((feature): FocusTarget[] => {
+        const coordinates = getFeatureCoordinates(feature);
+        if (!coordinates) return [];
+        const properties = asRecord(feature.properties);
+        return [{
+          id: feature.id,
+          label: String(properties?.label || feature.id),
+          domain: "intel",
+          kind: String(properties?.channel || properties?.kind || "signal"),
+          category: String(properties?.category || "signal"),
+          lat: coordinates.lat,
+          lon: coordinates.lon,
+          confidence: null
+        }];
+      });
+      return [...primaryTargets, ...pulseTargets];
+    },
+    [scene, sceneState.showIntelRegions, sceneState.showTrackerPoints, visiblePulseFeatures]
   );
 
   useEffect(() => {
@@ -1735,9 +1751,11 @@ export function GlobeOverlay() {
   const selectedFeature = useMemo(
     () =>
       selectedId
-        ? visiblePointFeatures.find((feature) => feature.id === selectedId) || null
+        ? [...visiblePointFeatures, ...visiblePulseFeatures].find(
+            (feature) => feature.id === selectedId
+          ) || null
         : null,
-    [selectedId, visiblePointFeatures]
+    [selectedId, visiblePointFeatures, visiblePulseFeatures]
   );
   const selectedTrail = useMemo(
     () =>
@@ -1838,7 +1856,20 @@ export function GlobeOverlay() {
       formatAge(selectedFeature.freshness?.age_sec, selectedFeature.freshness?.state)
     );
 
-    if (selectedIntelFeature) {
+    const signalChannel = String(properties?.channel || "").trim();
+    if (signalChannel) {
+      addRow("Channel", formatDisplayLabel(signalChannel));
+      addRow("Signal Score", formatMetricValue(
+        properties?.conflict_score ?? properties?.weather_score ?? properties?.risk_score,
+        "/10"
+      ));
+      addRow("Supporting Articles", formatMetricValue(properties?.article_count));
+      addRow("Context Tags", formatTopCountList(asRecord(properties?.event_counts)));
+      addRow("Impacted Markets", formatTopCountList(asRecord(properties?.impact_counts)));
+      addRow("Signals", formatStringList(properties?.signals));
+      addRow("Impacts", formatStringList(properties?.impacts));
+      addRow("Scope", formatDisplayLabel(properties?.display_scope));
+    } else if (selectedIntelFeature) {
       const combined = asRecord(properties?.combined_risk);
       const weather = asRecord(properties?.weather);
       const conflict = asRecord(properties?.conflict);

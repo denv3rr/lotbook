@@ -41,6 +41,9 @@ This is an inference from Palantir's public docs, not a claim that Clear should 
 - Added payload-derived signal-density strips, selected-feature provenance
   rows, expandable warnings, and safer centroid-highlight terminology in the
   globe overlay.
+- Corrected theater matching to use word boundaries, isolated conflict pulse
+  placement/headlines to conflict evidence, and made pulse highlights directly
+  selectable through the globe and keyboard-accessible Browse list.
 - Fixed collector-boundary duplicate news handling by deduping across feed/source overlaps using canonical URL first and content fallback second, while preserving a `sources` list for provenance.
 - Fixed client/account write-path duplicate drift by adding normalized client/account keys, store-level duplicate rejection, API `409` responses, and stronger duplicate tests.
 - Expanded diagnostics to surface duplicate client names and duplicate raw news cache entries, and routed report/news reads through the same deduped cache loader.

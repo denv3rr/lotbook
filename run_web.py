@@ -1,16 +1,24 @@
 import argparse
 import atexit
-import importlib.util
 import logging
 import os
 import shutil
 import signal
-from utils.stack_control import prepare_control, record_process, shutdown_requested
 import subprocess
-import httpx
 import sys
 import time
 import webbrowser
+
+from clear_bootstrap import REPO_ROOT, ensure_runtime_dependencies
+
+os.chdir(REPO_ROOT)
+if __name__ == "__main__" and not ensure_runtime_dependencies(
+    auto_install="--no-install" not in sys.argv[1:]
+):
+    raise SystemExit(1)
+
+import httpx
+from utils.stack_control import prepare_control, record_process, shutdown_requested
 
 LOGGER = logging.getLogger("clear.run_web")
 
@@ -38,7 +46,6 @@ from utils.launcher import (
     write_pid,
 )
 
-REQUIRED_PYTHON = ("fastapi", "uvicorn")
 API_PID = RUNTIME_DIR / "api.pid"
 WEB_PID = RUNTIME_DIR / "web.pid"
 
@@ -78,42 +85,7 @@ def _prompt_yes_no(message: str) -> bool:
 
 
 def _python_deps_ready(auto_yes: bool) -> bool:
-    missing = [pkg for pkg in REQUIRED_PYTHON if importlib.util.find_spec(pkg) is None]
-    if not missing:
-        return True
-    print(">> Missing Python dependencies:", ", ".join(missing))
-    if not auto_yes:
-        print(">> Aborted. Install dependencies then retry.")
-        return False
-    requirements = "requirements.txt"
-    if not os.path.isfile(requirements):
-        print(">> requirements.txt missing. Refusing unverified install.")
-        return False
-    has_hashes = False
-    with open(requirements, "r", encoding="utf-8", errors="ignore") as handle:
-        for line in handle:
-            text = line.strip()
-            if not text or text.startswith("#"):
-                continue
-            if "--hash=" in text:
-                has_hashes = True
-                break
-    if not has_hashes:
-        print(">> requirements.txt missing hashes. Refusing unverified install.")
-        print(">> Provide hashes (pip-compile --generate-hashes) before auto-install.")
-        return False
-    subprocess.check_call(
-        [
-            sys.executable,
-            "-m",
-            "pip",
-            "install",
-            "--require-hashes",
-            "-r",
-            requirements,
-        ]
-    )
-    return True
+    return ensure_runtime_dependencies(auto_install=auto_yes)
 
 
 def _candidate_paths() -> list[str]:

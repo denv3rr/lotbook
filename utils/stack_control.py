@@ -21,13 +21,21 @@ def prepare_control(ui_port: int) -> Path:
     return path
 
 
+def write_control(path: Path, payload: dict) -> None:
+    """Readers see either complete prior state or complete replacement state."""
+    temporary = path.with_name(f".{path.name}.{uuid4().hex}.tmp")
+    try:
+        temporary.write_text(json.dumps(payload), encoding="utf-8")
+        temporary.replace(path)
+    finally:
+        temporary.unlink(missing_ok=True)
+
+
 def record_process(path: Path, name: str, pid: int) -> None:
     process = psutil.Process(pid)
     payload = json.loads(path.read_text(encoding="utf-8"))
     payload["processes"][name] = {"pid": pid, "created": process.create_time(), "children": [{"pid": child.pid, "created": child.create_time()} for child in process.children(recursive=True)]}
-    temporary = path.with_suffix(".tmp")
-    temporary.write_text(json.dumps(payload), encoding="utf-8")
-    temporary.replace(path)
+    write_control(path, payload)
 
 
 def own_control() -> tuple[Path, dict] | None:
@@ -86,7 +94,7 @@ def mark_shutdown_requested() -> None:
     if control:
         path, payload = control
         payload["shutdown_requested"] = True
-        path.write_text(json.dumps(payload), encoding="utf-8")
+        write_control(path, payload)
 
 
 def finish_shutdown() -> bool:
@@ -97,7 +105,7 @@ def finish_shutdown() -> bool:
     web = payload["processes"].get("web")
     succeeded = stop_owned_process(web) if web else True
     payload["shutdown_result"] = "stopped" if succeeded else "failed"
-    path.write_text(json.dumps(payload), encoding="utf-8")
+    write_control(path, payload)
     if succeeded:
         for name, identity in payload["processes"].items():
             pid_path = path.parent / f"{name}.pid"

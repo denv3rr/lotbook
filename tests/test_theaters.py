@@ -9,6 +9,12 @@ def test_match_theaters_ukraine_and_myanmar():
     assert match_theaters(["European shipping disruption"], parent_region="Europe") == []
 
 
+def test_match_theaters_uses_word_boundaries_for_short_aliases():
+    assert match_theaters(["Somalia security situation"], parent_region="Africa") == []
+    sahel = match_theaters(["Mali security situation"], parent_region="Africa")
+    assert [item.theater_id for item in sahel] == ["sahel"]
+
+
 def test_headlines_from_items_keeps_real_titles():
     rows = headlines_from_items(
         [

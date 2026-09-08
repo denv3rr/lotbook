@@ -554,6 +554,11 @@ def build_intel_scene(
                     region.name,
                     categories=category_list,
                 )
+        conflict_news_items = _filter_conflict_news(
+            region_news_items,
+            region.name,
+            categories=category_list or None,
+        )
         news_metrics = _aggregate_news_metrics(region_news_items)
         news_score = news_metrics.get("risk_score") if region_news_items else None
         latest_news_ts = _latest_published_ts(region_news_items)
@@ -623,11 +628,7 @@ def build_intel_scene(
         conflict_themes: List[str] = []
         conflict_source_count = 0
         if conflict_raw.get("error"):
-            conflict_items = _filter_conflict_news(
-                region_news_items,
-                region.name,
-                categories=category_list or None,
-            )
+            conflict_items = conflict_news_items
             for item in conflict_items:
                 conflict_themes.extend([str(theme) for theme in (item.get("tags") or []) if theme])
                 conflict_themes.extend(
@@ -824,17 +825,23 @@ def build_intel_scene(
                 warnings=feature_warnings,
             )
         )
-        theater_texts = [
+        news_theater_texts = [
             str(item.get("title") or "")
             for item in region_news_items
         ]
-        theater_texts.extend(
+        conflict_theater_texts = [
+            str(item.get("title") or "")
+            for item in conflict_news_items
+        ]
+        conflict_theater_texts.extend(
             str(row.get("title") or row.get("themes") or "")
             for row in (conflict_raw.get("articles") or [])
             if isinstance(row, Mapping)
         )
-        matched_theaters = match_theaters(theater_texts, parent_region=region.name)
+        news_theaters = match_theaters(news_theater_texts, parent_region=region.name)
+        conflict_theaters = match_theaters(conflict_theater_texts, parent_region=region.name)
         region_headlines = headlines_from_items(region_news_items)
+        conflict_headlines = headlines_from_items(conflict_news_items)
         conflict_intensity = max(
             float(conflict_score or 0) / 10.0,
             sum(int(event_counts.get(tag) or 0) for tag in CONFLICT_CATEGORIES) / 8.0,
@@ -871,7 +878,7 @@ def build_intel_scene(
             )
 
         if news_count > 0:
-            news_targets = matched_theaters or [None]
+            news_targets = news_theaters or [None]
             for theater in news_targets:
                 pulse_features.append(
                     _signal_pulse_feature(
@@ -925,7 +932,7 @@ def build_intel_scene(
             )
 
         if conflict_score or any(int(event_counts.get(tag) or 0) > 0 for tag in CONFLICT_CATEGORIES):
-            conflict_targets = matched_theaters or [None]
+            conflict_targets = conflict_theaters or [None]
             for theater in conflict_targets:
                 pulse_features.append(
                     _signal_pulse_feature(
@@ -938,7 +945,7 @@ def build_intel_scene(
                         lon=theater.lon if theater else region.lon,
                         target_id=feature_id,
                         intensity=conflict_intensity,
-                        headlines=region_headlines,
+                        headlines=conflict_headlines,
                         extra={
                             "conflict_score": conflict_score,
                             "article_count": conflict_source_count,

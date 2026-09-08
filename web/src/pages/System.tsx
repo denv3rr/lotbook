@@ -112,6 +112,9 @@ export default function System() {
   const [apiKeyOpen, setApiKeyOpen] = useState(false);
   const [apiKeyInput, setApiKeyInput] = useState("");
   const [apiKeyPersist, setApiKeyPersist] = useState(false);
+  const [apiKeyBusy, setApiKeyBusy] = useState(false);
+  const [apiKeyError, setApiKeyError] = useState<string | null>(null);
+  const [apiKeyNotice, setApiKeyNotice] = useState<string | null>(null);
   const { data, error, refresh } = useApi<DiagnosticsPayload>("/api/tools/diagnostics", {
     interval: 60000
   });
@@ -267,17 +270,38 @@ export default function System() {
   const onSetApiKey = () => {
     setApiKeyInput("");
     setApiKeyPersist(false);
+    setApiKeyError(null);
     setApiKeyOpen(true);
+  };
+
+  const onClearApiKey = () => {
+    clearApiKey();
+    setApiKeyError(null);
+    setApiKeyNotice("Browser API key cleared.");
   };
 
   const onSaveApiKey = async () => {
     const trimmed = apiKeyInput.trim();
     if (!trimmed) {
+      setApiKeyError("Enter an API key before saving.");
       return;
     }
-    await setApiKeyLocal(trimmed, { persist: apiKeyPersist });
-    setApiKeyOpen(false);
-    setApiKeyInput("");
+    setApiKeyBusy(true);
+    setApiKeyError(null);
+    try {
+      const scope = await setApiKeyLocal(trimmed, { persist: apiKeyPersist });
+      setApiKeyNotice(
+        scope === "memory"
+          ? "Encrypted browser storage is unavailable. The key is active for this page only and will be lost on reload."
+          : `API key saved for ${scope === "local" ? "this device" : "this browser session"}.`
+      );
+      setApiKeyOpen(false);
+      setApiKeyInput("");
+    } catch (err) {
+      setApiKeyError(err instanceof Error ? err.message : "The API key could not be saved.");
+    } finally {
+      setApiKeyBusy(false);
+    }
   };
 
   return (
@@ -294,7 +318,7 @@ export default function System() {
               Set API Key
             </button>
             <button
-              onClick={clearApiKey}
+              onClick={onClearApiKey}
               className="rounded-lg border border-slate-700 bg-slate-950/80 px-3 py-1 text-xs text-slate-100 hover:border-green-400/40"
             >
               Clear API Key
@@ -345,6 +369,14 @@ export default function System() {
       {cleanupMessage ? (
         <div className="mt-3 rounded-xl border border-slate-700/60 bg-slate-900/70 p-3 text-xs text-slate-200">
           {cleanupMessage}
+        </div>
+      ) : null}
+      {apiKeyNotice ? (
+        <div
+          className="mt-3 rounded-xl border border-sky-400/30 bg-sky-400/10 p-3 text-xs text-sky-100"
+          role="status"
+        >
+          {apiKeyNotice}
         </div>
       ) : null}
       <div className="mt-6 grid grid-cols-1 lg:grid-cols-4 gap-4">
@@ -509,13 +541,14 @@ export default function System() {
       <Modal
         open={apiKeyOpen}
         title="Set API Key"
-        description="Keys are stored locally in this browser. Use session mode for temporary access."
-        onClose={() => setApiKeyOpen(false)}
+        description="Encrypted browser storage is used when available. Use session mode for temporary access."
+        onClose={() => (apiKeyBusy ? null : setApiKeyOpen(false))}
         footer={
           <>
             <button
               type="button"
               onClick={() => setApiKeyOpen(false)}
+              disabled={apiKeyBusy}
               className="rounded-full border border-slate-700/70 px-3 py-1 text-[11px] text-slate-300 hover:border-slate-500"
             >
               Cancel
@@ -523,9 +556,10 @@ export default function System() {
             <button
               type="button"
               onClick={onSaveApiKey}
+              disabled={apiKeyBusy}
               className="rounded-full border border-green-400/60 bg-green-500/10 px-3 py-1 text-[11px] text-green-200 hover:border-green-300"
             >
-              Save Key
+              {apiKeyBusy ? "Saving..." : "Save Key"}
             </button>
           </>
         }
@@ -552,6 +586,11 @@ export default function System() {
           <p className="text-[11px] text-slate-400">
             Rotating keys? Save the new key here and clear old keys on other devices.
           </p>
+          {apiKeyError ? (
+            <p className="text-[11px] text-rose-300" role="alert">
+              {apiKeyError}
+            </p>
+          ) : null}
         </div>
       </Modal>
     </Card>

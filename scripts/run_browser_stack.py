@@ -29,6 +29,11 @@ def main():
     os.chdir(runtime)
     os.environ.update({"PYTHONPATH": str(ROOT), "CLEAR_WEB_API_KEY": "isolated-browser-verification", "VITE_API_BASE": "http://127.0.0.1:18080", "VITE_API_KEY": "isolated-browser-verification"})
     from clearctl import _parse_args, _start
+    # The supported launcher normalizes cwd on import. Restore isolated data
+    # paths before invoking it; never launch acceptance against operator data.
+    os.chdir(runtime)
+    if Path.cwd().resolve() != runtime.resolve():
+        raise RuntimeError("Unable to establish isolated acceptance data paths.")
     return _start(_parse_args(["start", "--api-port", "18080", "--ui-port", "15173", "--no-open", "--no-install"]))
 
 

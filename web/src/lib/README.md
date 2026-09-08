@@ -16,3 +16,7 @@ Shared frontend utilities, API client, and data helpers.
 - API-key reads and writes are asynchronous because browser-stored values are
   encrypted. Await `getApiKey()` before creating HTTP headers or WebSocket
   subprotocols; never coerce its promise into a credential value.
+- Encrypted key creation is serialized through one IndexedDB read/write
+  transaction so simultaneous tabs reuse one key. If browser storage is
+  unavailable, session requests fall back to page memory with an explicit UI
+  warning; persistent-storage requests fail visibly and remain open for retry.

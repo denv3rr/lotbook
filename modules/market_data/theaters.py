@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 from typing import Iterable, List, Mapping, Optional, Sequence
 
@@ -134,7 +135,10 @@ def match_theaters(
     for theater in THEATERS:
         if parent_region and theater.parent_region != parent_region:
             continue
-        if any(alias in blob for alias in theater.aliases):
+        if any(
+            re.search(rf"(?<!\w){re.escape(alias.casefold())}(?!\w)", blob)
+            for alias in theater.aliases
+        ):
             hits.append(theater)
     return hits
 
