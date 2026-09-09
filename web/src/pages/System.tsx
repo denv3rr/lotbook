@@ -1,4 +1,5 @@
 import { Card } from "../components/ui/Card";
+import { BackupDatabase } from "../components/layout/BackupDatabase";
 import { MeterBar } from "../components/ui/Charts";
 import { ErrorBanner } from "../components/ui/ErrorBanner";
 import { KpiCard } from "../components/ui/KpiCard";
@@ -332,6 +333,7 @@ export default function System() {
       <div className="mt-4">
         <ErrorBanner messages={errorMessages} onRetry={refresh} />
       </div>
+      <BackupDatabase />
       {duplicateCount > 0 || duplicateClientNames > 0 || duplicateNewsItems > 0 ? (
         <div className="mt-4 rounded-xl border border-amber-400/30 bg-amber-400/10 p-4 text-sm text-amber-200">
           <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
