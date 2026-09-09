@@ -31,12 +31,12 @@ export async function preflightStyle(
   }
 }
 
-export function checkWorkerClass(maplibre: { workerClass?: new () => Worker }) {
-  if (!maplibre.workerClass) {
+export function checkWorkerClass(maplibre: { getWorkerUrl: () => string }) {
+  if (!maplibre.getWorkerUrl()) {
     return "Worker: missing";
   }
   try {
-    const worker = new maplibre.workerClass();
+    const worker = new Worker(maplibre.getWorkerUrl(), { type: "module" });
     worker.terminate();
     return "Worker: ok";
   } catch (err) {

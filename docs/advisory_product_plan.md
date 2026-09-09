@@ -46,8 +46,10 @@ shared quote caching, request coalescing and provider-supported incremental
 updates with observed timestamps, rate limits and subscription rights. Polling
 and interpolated positions must not be labeled live market streaming.
 
-World direction is captured in `world_map_reference_plan.md`; no new imagery
-provider or map engine is included in this advisory pass.
+World direction and the subsequent navigable NASA-basemap replacement are
+captured in `world_map_reference_plan.md`. The dashboard remains the landing page.
+Local encrypted database export and non-overwriting recovery staging are now
+implemented; see `production_readiness.md` for scope, verification and release gates.
 
 1. Expand modeling with reviewed financial statement and peer-data intake,
    precedent valuations, capital structure, merger and sponsor models, and

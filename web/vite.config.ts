@@ -30,7 +30,7 @@ export default defineConfig(({ mode }) => {
             return;
           }
           if (
-            id.includes("plotly.js-dist-min") ||
+            id.includes("plotly.js-gl3d-dist-min") ||
             id.includes("react-plotly.js")
           ) {
             return "plotly";

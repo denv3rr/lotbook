@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { loadMapLibre, mapLibreWorkerUrl } from "../lib/maplibre";
 import type { MapLibre } from "../lib/maplibre";
+import type { Map as MapInstance, GeoJSONSource } from "maplibre-gl";
+import type { Feature, FeatureCollection } from "geojson";
 import { loadLeaflet, type LeafletLib } from "../lib/leaflet";
 import { Card } from "../components/ui/Card";
 import { Collapsible } from "../components/ui/Collapsible";
@@ -289,7 +291,7 @@ export function TrackersPanel() {
     geofences
   });
   const { ref: mapRef, size: mapSize } = useMeasuredSize<HTMLDivElement>();
-  const mapInstance = useRef<MapLibre["Map"] | null>(null);
+  const mapInstance = useRef<MapInstance | null>(null);
   const [maplibre, setMapLibre] = useState<MapLibre | null>(null);
   const styleRequested = useRef(false);
   const styleLoaded = useRef(false);
@@ -563,7 +565,7 @@ export function TrackersPanel() {
     return { counts, topCategories };
   }, [filteredPoints]);
 
-  const trackerGeojson = useMemo(() => {
+  const trackerGeojson = useMemo<FeatureCollection>(() => {
     return {
       type: "FeatureCollection",
       features: mapFilteredPoints
@@ -841,11 +843,10 @@ export function TrackersPanel() {
       mapInitRef.current = true;
       const canvas = document.createElement("canvas");
       const hasWebgl =
-        !!window.WebGLRenderingContext &&
-        (canvas.getContext("webgl") || canvas.getContext("experimental-webgl"));
+        !!window.WebGL2RenderingContext && canvas.getContext("webgl2");
       if (!hasWebgl) {
-        setMapError("WebGL not supported in this browser.");
-        setMapStatus("WebGL not supported.");
+        setMapError("WebGL 2 is not supported in this browser. Use the fallback map.");
+        setMapStatus("WebGL 2 not supported.");
         mapInitRef.current = false;
         return;
       }
@@ -884,7 +885,7 @@ export function TrackersPanel() {
         return [...next, ...resourceLines];
       });
     });
-      let map: MapLibre["Map"];
+      let map: MapInstance;
       try {
         map = new maplibre.Map({
           container: mapRef.current,
@@ -892,7 +893,7 @@ export function TrackersPanel() {
           center: [mapViewRef.current.center[1], mapViewRef.current.center[0]],
           zoom: mapViewRef.current.zoom,
           attributionControl: false,
-          transformRequest: (url: string, resourceType: string) => {
+          transformRequest: (url, resourceType) => {
             if (resourceType === "Style" && !styleRequested.current) {
               styleRequested.current = true;
               setMapStatus("Requesting style...");
@@ -1162,7 +1163,7 @@ export function TrackersPanel() {
   useEffect(() => {
     if (mapFallback || !mapInstance.current || !mapReady) return;
     const map = mapInstance.current;
-    const source = map.getSource("tracker-points") as MapLibre["GeoJSONSource"] | undefined;
+    const source = map.getSource("tracker-points") as GeoJSONSource | undefined;
     if (!source) return;
     source.setData(trackerGeojson);
   }, [trackerGeojson, mapReady]);
@@ -1289,21 +1290,21 @@ export function TrackersPanel() {
     const map = mapInstance.current;
     if (!map.getSource("history-line")) return;
     const coords = (history?.history || []).map((point) => [point.lon, point.lat]);
-    const feature = {
+    const feature: Feature = {
       type: "Feature",
       geometry: { type: "LineString", coordinates: coords },
       properties: {}
     };
-    const source = map.getSource("history-line") as MapLibre["GeoJSONSource"];
+    const source = map.getSource("history-line") as GeoJSONSource;
     source.setData(feature);
-    if (coords.length >= 2 && !mapLock && !mapFollow && mapLayers.history) {
+    if (maplibre && coords.length >= 2 && !mapLock && !mapFollow && mapLayers.history) {
       const bounds = coords.reduce(
         (box, coord) => box.extend(coord as [number, number]),
         new maplibre.LngLatBounds(coords[0] as [number, number], coords[0] as [number, number])
       );
       map.fitBounds(bounds, { padding: 80, maxZoom: 6 });
     }
-  }, [history, mapFollow, mapLock, mapLayers.history, mapReady]);
+  }, [history, mapFollow, mapLock, mapLayers.history, mapReady, maplibre]);
 
   useEffect(() => {
     if (mapFallback || !mapInstance.current || !mapReady || !mapOpen) return;
