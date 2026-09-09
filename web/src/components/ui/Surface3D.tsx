@@ -6,7 +6,7 @@ type PlotComponent = ComponentType<Record<string, unknown>>;
 async function loadPlotComponent(): Promise<PlotComponent> {
   const [{ default: Plotly }, { default: createPlotlyComponent }] =
     await Promise.all([
-      import("plotly.js-dist-min"),
+      import("plotly.js-gl3d-dist-min"),
       import("react-plotly.js/factory")
     ]);
   return createPlotlyComponent(Plotly) as PlotComponent;

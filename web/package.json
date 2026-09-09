@@ -18,27 +18,22 @@
     "test:clean": "node -e \"require('fs').rmSync('test-results',{recursive:true,force:true});require('fs').rmSync('playwright-report',{recursive:true,force:true});\""
   },
   "dependencies": {
-    "@react-three/drei": "^10.7.7",
-    "@react-three/fiber": "^9.4.0",
-    "@react-three/postprocessing": "^3.0.4",
     "framer-motion": "^12.24.7",
     "leaflet": "^1.9.4",
     "lucide-react": "^0.562.0",
-    "maplibre-gl": "^5.15.0",
-    "postprocessing": "^6.37.7",
-    "plotly.js-dist-min": "^3.3.1",
+    "maplibre-gl": "^6.8.0",
+    "plotly.js-gl3d-dist-min": "^3.3.1",
     "react": "^19.2.3",
     "react-dom": "^19.2.3",
     "react-markdown": "^10.1.0",
     "react-plotly.js": "^2.6.0",
     "react-router-dom": "^7.18.0",
     "recharts": "^3.6.0",
-    "three": "^0.177.0",
     "remark-gfm": "^4.0.0"
   },
   "devDependencies": {
-    "@tailwindcss/postcss": "^4.1.18",
     "@playwright/test": "^1.47.2",
+    "@tailwindcss/postcss": "^4.1.18",
     "@types/react": "^19.2.7",
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^5.1.2",
@@ -51,6 +46,9 @@
   "overrides": {
     "protocol-buffers-schema": "3.6.1",
     "picomatch": "4.0.4",
-    "@babel/core": "7.29.6"
+    "@babel/core": "7.29.6",
+    "plotly.js": {
+      "maplibre-gl": "^6.8.0"
+    }
   }
 }

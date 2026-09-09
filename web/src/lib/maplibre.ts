@@ -1,7 +1,7 @@
-export type MapLibre = typeof import("maplibre-gl/dist/maplibre-gl-csp");
+export type MapLibre = typeof import("maplibre-gl");
 
 import mapLibreCssUrl from "maplibre-gl/dist/maplibre-gl.css?url";
-import workerUrl from "maplibre-gl/dist/maplibre-gl-csp-worker.js?url";
+import workerUrl from "maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url";
 
 export const mapLibreWorkerUrl = workerUrl;
 
@@ -20,15 +20,8 @@ function ensureMapLibreStylesheet() {
 export async function loadMapLibre(): Promise<MapLibre> {
   if (cached) return cached;
   ensureMapLibreStylesheet();
-  const mod = await import("maplibre-gl/dist/maplibre-gl-csp");
-  const maplibre = (mod as { default?: MapLibre }).default ?? (mod as MapLibre);
-  if (workerUrl) {
-    maplibre.workerClass = class extends Worker {
-      constructor() {
-        super(workerUrl);
-      }
-    };
-  }
+  const maplibre = await import("maplibre-gl");
+  maplibre.setWorkerUrl(workerUrl);
   cached = maplibre;
   return maplibre;
 }

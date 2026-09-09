@@ -3,6 +3,8 @@ import net from "node:net";
 import fs from "node:fs";
 import path from "node:path";
 import { execFileSync } from "node:child_process";
+import { loadCapturedIntelGlobeFixture } from "./fixtures/globeFixtures";
+import { areaGeometry, coordinateBounds, readAreas } from "../src/lib/worldMap";
 
 test.describe.configure({ mode: "serial" });
 
@@ -155,6 +157,79 @@ test("client profile loads independently and hidden pattern analysis stays idle"
   await patternRequest;
   await expect(page.getByText("Realtime valuations active.", { exact: true })).toHaveCount(0);
   expect(failures).toEqual([]);
+});
+
+test("research-area geometry handles antimeridian and rejects invalid storage", () => {
+  expect(coordinateBounds([[179, -10], [-179, 10]])).toEqual([179, -10, -179, 10]);
+  const geometry = areaGeometry([179, -10, -179, 10]);
+  expect(geometry.type).toBe("MultiPolygon");
+  expect(geometry.coordinates).toHaveLength(2);
+  expect(() => areaGeometry([0, 20, 5, -20])).toThrow();
+  expect(() => readAreas('[{"name":"invalid"}]')).toThrow();
+});
+
+test("World map uses actual NASA tiles, reviewed geography and saved operator areas", async ({ page }) => {
+  test.setTimeout(45000);
+  const fixture = loadCapturedIntelGlobeFixture();
+  const failures: string[] = [];
+  page.on("pageerror", error => failures.push(error.message));
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await page.route("**/api/osint/scene/intel**", route => route.fulfill({ json: fixture.scene_payload }));
+  await page.route("**/api/intel/meta**", route => route.fulfill({ json: fixture.intel_meta_payload }));
+  const tile = page.waitForResponse(response => response.url().startsWith("https://gibs.earthdata.nasa.gov/") && response.ok(), { timeout: 30000 });
+  await page.goto("/osint?tab=intel");
+  await page.getByTestId("osint-open-globe").click();
+  await page.getByTestId("globe-scene-intel").click();
+  await tile;
+  await expect(page.getByTestId("world-map-canvas").locator("canvas")).toBeVisible();
+  await expect(page.getByText("Loading world view...", { exact: true })).toHaveCount(0);
+  await page.getByRole("button", { name: "Map tools", exact: true }).click();
+  await page.getByLabel("Find country", { exact: true }).fill("France");
+  await page.getByRole("button", { name: "France", exact: true }).click();
+  await page.getByLabel("Map projection", { exact: true }).selectOption("mercator");
+  await page.getByRole("button", { name: "Zoom in", exact: true }).click();
+  await page.getByRole("button", { name: "Zoom in", exact: true }).click();
+  await page.getByLabel("Research area name", { exact: true }).fill("Browser-verified viewport");
+  await page.getByRole("button", { name: "Save current map area", exact: true }).click();
+  await expect(page.getByRole("button", { name: "Browser-verified viewport", exact: true })).toBeVisible();
+  await expect(page.getByText(/operator-defined viewport bounds/)).toBeVisible();
+  await page.getByRole("button", { name: "Map tools", exact: true }).click();
+  await page.screenshot({ path: "test-results/world-map-desktop.png" });
+  await page.getByRole("button", { name: "Map tools", exact: true }).click();
+  await page.getByLabel("Historical satellite basemap").uncheck();
+  await page.setViewportSize({ width: 390, height: 844 });
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBeTruthy();
+  await page.screenshot({ path: "test-results/world-map-mobile.png" });
+  await page.getByRole("button", { name: "Remove Browser-verified viewport", exact: true }).click();
+  await expect(page.getByRole("button", { name: "Browser-verified viewport", exact: true })).toHaveCount(0);
+  await page.getByRole("button", { name: "Reset map view", exact: true }).click();
+  await page.getByLabel("Map projection", { exact: true }).selectOption("globe");
+  await page.getByRole("button", { name: "Map tools", exact: true }).click();
+  await page.getByTestId("globe-browse-toggle").click();
+  await page.locator("#globe-browse-panel button").first().click();
+  await expect(page.getByTestId("globe-inspector")).not.toContainText("Select an object on the globe");
+  await page.getByRole("button", { name: "Collapse context panel", exact: true }).click();
+  await page.screenshot({ path: "test-results/world-map-mobile-browse.png" });
+  expect(failures).toEqual([]);
+});
+
+test("encrypted backup download recovers the real isolated canonical database", async ({ page }) => {
+  await page.goto("/system");
+  await page.getByRole("button", { name: "Download encrypted backup", exact: true }).click();
+  const dialog = page.getByRole("dialog", { name: "Export encrypted database backup" });
+  await dialog.getByLabel("Backup passphrase", { exact: true }).fill("isolated-browser-recovery-passphrase");
+  await dialog.getByLabel("Repeat backup passphrase", { exact: true }).fill("isolated-browser-recovery-passphrase");
+  const downloadEvent = page.waitForEvent("download");
+  await dialog.getByRole("button", { name: "Confirm and download backup", exact: true }).click();
+  const download = await downloadEvent;
+  const directory = fs.mkdtempSync(path.resolve("test-results/recovery-"));
+  const archive = path.join(directory, "snapshot.clearbackup");
+  const restored = path.join(directory, "verified.db");
+  await download.saveAs(archive);
+  const result = JSON.parse(execFileSync("python", ["-c", "import json,sys,sqlite3; from pathlib import Path; from utils.recovery import restore_to_new_file; from contextlib import closing; manifest=restore_to_new_file(Path(sys.argv[1]).read_bytes(), sys.stdin.read(), Path(sys.argv[2])); db=sqlite3.connect(sys.argv[2]); count=db.execute(\"SELECT count(*) FROM sqlite_master WHERE type='table'\").fetchone()[0]; db.close(); print(json.dumps({'scope': manifest['scope'], 'tables': count}))", archive, restored], { cwd: path.resolve(".."), input: "isolated-browser-recovery-passphrase", encoding: "utf8" }));
+  expect(result.scope).toBe("canonical-sqlite-database");
+  expect(result.tables).toBeGreaterThan(0);
+  await expect(page.getByRole("status").filter({ hasText: "Encrypted backup download started" })).toBeVisible();
 });
 
 function isListening(port: number): Promise<boolean> {

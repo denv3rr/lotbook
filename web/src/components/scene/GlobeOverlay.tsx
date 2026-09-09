@@ -1,16 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import type { MutableRefObject } from "react";
-import { Canvas, useFrame, useThree } from "@react-three/fiber";
-import { Bloom, EffectComposer } from "@react-three/postprocessing";
-import {
-  Html,
-  Line,
-  OrbitControls,
-  PerformanceMonitor,
-  Stars
-} from "@react-three/drei";
-import type { Mesh } from "three";
-import * as THREE from "three";
+import { WorldMapCanvas } from "./WorldMapCanvas";
+import type { Geometry } from "geojson";
 import {
   AlertTriangle,
   ChevronDown,
@@ -25,7 +15,6 @@ import {
 } from "lucide-react";
 import { apiGet, useApi } from "../../lib/api";
 import {
-  buildGlobeContextCanvas,
   loadGlobeGeography,
   type GlobeGeographyData,
 } from "../../lib/globeGeography";
@@ -171,9 +160,6 @@ const CAMERA_PRESET_OPTIONS: Array<{ id: SceneCameraPreset; label: string }> = [
   { id: "focus", label: "Follow Selection" }
 ];
 
-const GLOBE_RADIUS = 1.6;
-const SCENE_ROTATION_VALUES: [number, number, number] = [0.15, 0.3, 0];
-const SCENE_ROTATION = new THREE.Euler(...SCENE_ROTATION_VALUES);
 const TOUR_INTERVAL_MS = 3600;
 
 const TRACKER_PRESENTATION_PRESETS: Array<{
@@ -197,21 +183,6 @@ const INTEL_PRESENTATION_PRESETS: Array<{
   { id: "emotion-watch", label: "Emotion Watch" }
 ];
 
-function latLonToVector(
-  lat: number,
-  lon: number,
-  radius = GLOBE_RADIUS,
-  altitude = 0
-): THREE.Vector3 {
-  const phi = ((90 - lat) * Math.PI) / 180;
-  const theta = ((lon + 180) * Math.PI) / 180;
-  const r = radius + altitude;
-  return new THREE.Vector3(
-    -r * Math.sin(phi) * Math.cos(theta),
-    r * Math.cos(phi),
-    r * Math.sin(phi) * Math.sin(theta)
-  );
-}
 
 function formatTimestamp(ts?: number | null) {
   if (!ts) return "Live";
@@ -852,651 +823,6 @@ async function buildFallbackTrackerScene(mode: TrackerSceneMode): Promise<SceneP
   };
 }
 
-function AdaptiveDprController({
-  qualityFactor,
-  reducedMotion
-}: {
-  qualityFactor: number;
-  reducedMotion: boolean;
-}) {
-  const setDpr = useThree((state) => state.setDpr);
-  const initialDpr = useThree((state) => state.viewport.initialDpr);
-
-  useEffect(() => {
-    const baseDpr = Math.min(initialDpr || 1, 1.6);
-    const nextDpr = reducedMotion
-      ? 1
-      : Math.max(0.85, Math.min(1.55, baseDpr * (0.72 + qualityFactor * 0.4)));
-    setDpr(Number(nextDpr.toFixed(2)));
-  }, [initialDpr, qualityFactor, reducedMotion, setDpr]);
-
-  return null;
-}
-
-function CameraRig({
-  cameraPreset,
-  controlsRef,
-  defaults,
-  focusTarget,
-  reducedMotion
-}: {
-  cameraPreset: SceneCameraPreset;
-  controlsRef: MutableRefObject<any>;
-  defaults?: ScenePayload["camera_defaults"];
-  focusTarget: FocusTarget | null;
-  reducedMotion: boolean;
-}) {
-  const { camera } = useThree();
-  const isFocusPreset =
-    cameraPreset === "focus" &&
-    Number.isFinite(focusTarget?.lat) &&
-    Number.isFinite(focusTarget?.lon);
-  const isFreePreset = cameraPreset === "free";
-
-  const targetVector = useMemo(() => {
-    const lat = isFocusPreset
-      ? Number(focusTarget?.lat)
-      : Number(defaults?.target_lat ?? 0);
-    const lon = isFocusPreset
-      ? Number(focusTarget?.lon)
-      : Number(defaults?.target_lon ?? 0);
-    return latLonToVector(lat, lon, GLOBE_RADIUS, 0.02).applyEuler(SCENE_ROTATION);
-  }, [
-    defaults?.target_lat,
-    defaults?.target_lon,
-    focusTarget?.lat,
-    focusTarget?.lon,
-    isFocusPreset
-  ]);
-
-  const cameraVector = useMemo(() => {
-    const baseDistance = Math.max(2.6, Number(defaults?.distance ?? 3.35));
-    const distance = isFocusPreset
-      ? Math.max(2.45, baseDistance - 0.35)
-      : Math.max(2.8, baseDistance);
-    return targetVector.clone().normalize().multiplyScalar(distance);
-  }, [defaults?.distance, isFocusPreset, targetVector]);
-
-  useEffect(() => {
-    if (!isFreePreset) return;
-    const controls = controlsRef.current;
-    if (controls?.target) {
-      controls.target.set(0, 0, 0);
-      controls.update();
-    }
-  }, [controlsRef, isFreePreset]);
-
-  useEffect(() => {
-    if (!reducedMotion || isFreePreset) return;
-    camera.position.copy(cameraVector);
-    const controls = controlsRef.current;
-    if (controls?.target) {
-      controls.target.copy(targetVector.clone().multiplyScalar(0.45));
-      controls.update();
-      return;
-    }
-    camera.lookAt(targetVector);
-  }, [camera, cameraVector, controlsRef, isFreePreset, reducedMotion, targetVector]);
-
-  useFrame(() => {
-    if (reducedMotion || isFreePreset) return;
-    camera.position.lerp(cameraVector, 0.075);
-    const controls = controlsRef.current;
-    if (controls?.target) {
-      const target = targetVector.clone().multiplyScalar(0.45);
-      controls.target.lerp(target, 0.12);
-      controls.update();
-    } else {
-      camera.lookAt(targetVector);
-    }
-  });
-
-  return null;
-}
-
-function GlobeShell({
-  contextTexture,
-  qualityFactor,
-  reducedMotion
-}: {
-  contextTexture: THREE.Texture | null;
-  qualityFactor: number;
-  reducedMotion: boolean;
-}) {
-  const atmosphereRef = useRef<Mesh | null>(null);
-  const edgeGeometry = useMemo(
-    () => new THREE.SphereGeometry(GLOBE_RADIUS, reducedMotion ? 16 : 24, reducedMotion ? 16 : 24),
-    [reducedMotion]
-  );
-  const shellSegments = reducedMotion ? 42 : 64;
-  const atmosphereOpacity = reducedMotion ? 0.05 : 0.05 + qualityFactor * 0.05;
-
-  useFrame((state) => {
-    if (!reducedMotion && atmosphereRef.current) {
-      atmosphereRef.current.rotation.y = state.clock.elapsedTime * 0.03;
-    }
-  });
-
-  return (
-    <group>
-      <mesh>
-        <sphereGeometry args={[GLOBE_RADIUS, shellSegments, shellSegments]} />
-        <meshStandardMaterial
-          color="#05111a"
-          emissive="#0e513c"
-          emissiveIntensity={0.45 + qualityFactor * 0.25}
-          roughness={0.82}
-          metalness={0.12}
-          transparent
-          opacity={0.9}
-        />
-      </mesh>
-      {contextTexture ? (
-        <mesh scale={1.002}>
-          <sphereGeometry args={[GLOBE_RADIUS, shellSegments, shellSegments]} />
-          <meshBasicMaterial
-            map={contextTexture}
-            transparent
-            opacity={0.92}
-          />
-        </mesh>
-      ) : null}
-      <mesh ref={atmosphereRef} scale={1.07}>
-        <sphereGeometry args={[GLOBE_RADIUS, shellSegments, shellSegments]} />
-        <meshBasicMaterial
-          color="#48f1a6"
-          transparent
-          opacity={atmosphereOpacity}
-          side={THREE.BackSide}
-        />
-      </mesh>
-      <lineSegments>
-        <edgesGeometry args={[edgeGeometry]} />
-        <lineBasicMaterial color="#48f1a6" transparent opacity={reducedMotion ? 0.08 : 0.12} />
-      </lineSegments>
-    </group>
-  );
-}
-
-function TrackerTrail({
-  active,
-  feature
-}: {
-  active: boolean;
-  feature: SceneFeature;
-}) {
-  const coordinates = Array.isArray(feature.geometry.coordinates)
-    ? (feature.geometry.coordinates as number[][])
-    : [];
-  const points = useMemo(
-    () =>
-      coordinates
-        .filter((coord) => Array.isArray(coord) && coord.length >= 2)
-        .map((coord) => latLonToVector(coord[1], coord[0], GLOBE_RADIUS, 0.03)),
-    [coordinates]
-  );
-
-  if (points.length < 2) return null;
-
-  return (
-    <Line
-      points={points}
-      color={active ? "#9cffdb" : "#48f1a6"}
-      lineWidth={active ? 2.2 : 1.2}
-      transparent
-      opacity={active ? 0.95 : 0.5}
-    />
-  );
-}
-
-function HotspotPulse({
-  feature,
-  onSelect,
-  reducedMotion,
-  selected
-}: {
-  feature: SceneFeature;
-  onSelect: (id: string) => void;
-  reducedMotion: boolean;
-  selected: boolean;
-}) {
-  const outerRef = useRef<Mesh | null>(null);
-  const innerRef = useRef<Mesh | null>(null);
-  const coords = Array.isArray(feature.geometry.coordinates)
-    ? (feature.geometry.coordinates as number[])
-    : [];
-  const properties = asRecord(feature.properties);
-  const presentation = asRecord(properties?.presentation);
-  const accent = pulseAccent(feature);
-  const intensity = Math.max(
-    0.3,
-    Math.min(1, getNumericValue(presentation?.pulse_intensity) ?? 0.55)
-  );
-  const position = useMemo(() => {
-    if (coords.length < 2) {
-      return new THREE.Vector3(0, 0, 0);
-    }
-    return latLonToVector(coords[1], coords[0], GLOBE_RADIUS, 0.018);
-  }, [coords]);
-  const pulseOffset = useMemo(() => feature.id.length * 0.11, [feature.id]);
-
-  useEffect(() => {
-    if (!reducedMotion) return;
-    outerRef.current?.scale.set(1.55 + intensity * 0.35, 0.8, 1.55 + intensity * 0.35);
-    innerRef.current?.scale.set(1.15 + intensity * 0.28, 0.72, 1.15 + intensity * 0.28);
-  }, [intensity, reducedMotion]);
-
-  useFrame((state) => {
-    if (reducedMotion) return;
-    const pulse = 1 + Math.sin(state.clock.elapsedTime * 1.45 + pulseOffset) * 0.12;
-    const selectedBoost = selected ? 0.18 : 0;
-    outerRef.current?.scale.set(
-      (1.45 + intensity * 0.34 + selectedBoost) * pulse,
-      0.78,
-      (1.45 + intensity * 0.34 + selectedBoost) * pulse
-    );
-    innerRef.current?.scale.set(
-      (1.08 + intensity * 0.24 + selectedBoost) * pulse,
-      0.72,
-      (1.08 + intensity * 0.24 + selectedBoost) * pulse
-    );
-  });
-
-  return (
-    <group
-      position={position}
-      onClick={(event) => {
-        event.stopPropagation();
-        onSelect(feature.id);
-      }}
-    >
-      <mesh ref={outerRef}>
-        <sphereGeometry args={[0.1 + intensity * 0.04, 18, 18]} />
-        <meshBasicMaterial color={accent} transparent opacity={selected ? 0.22 : 0.13} depthWrite={false} />
-      </mesh>
-      <mesh ref={innerRef}>
-        <sphereGeometry args={[0.065 + intensity * 0.03, 18, 18]} />
-        <meshBasicMaterial color={accent} transparent opacity={selected ? 0.2 : 0.12} depthWrite={false} />
-      </mesh>
-    </group>
-  );
-}
-
-function LivePoint({
-  accentColor,
-  feature,
-  intensity,
-  intelLens,
-  onSelect,
-  reducedMotion,
-  sceneId,
-  selected
-}: {
-  accentColor: string;
-  feature: SceneFeature;
-  intensity: number;
-  intelLens: IntelSceneLens;
-  onSelect: (id: string) => void;
-  reducedMotion: boolean;
-  sceneId: SceneId;
-  selected: boolean;
-}) {
-  const markerRef = useRef<Mesh | null>(null);
-  const haloRef = useRef<Mesh | null>(null);
-  const coords = Array.isArray(feature.geometry.coordinates)
-    ? (feature.geometry.coordinates as number[])
-    : [];
-  const tooltipDetails = useMemo(
-    () => getTooltipDetailLines(feature, sceneId, intelLens),
-    [feature, intelLens, sceneId]
-  );
-  const position = useMemo(() => {
-    if (coords.length < 2) {
-      return new THREE.Vector3(0, 0, 0);
-    }
-    return latLonToVector(coords[1], coords[0], GLOBE_RADIUS, 0.045);
-  }, [coords]);
-  const kind = String(asRecord(feature.properties)?.kind || "").toLowerCase();
-  const isFlight = kind === "flight";
-  const headingDeg = getNumericValue(asRecord(feature.properties)?.heading_deg);
-  const orientation = useMemo(() => {
-    if (!isFlight || coords.length < 2) {
-      return new THREE.Quaternion();
-    }
-    const up = latLonToVector(coords[1], coords[0], 1, 0).normalize();
-    const east = new THREE.Vector3().crossVectors(new THREE.Vector3(0, 1, 0), up);
-    if (east.lengthSq() < 1e-6) {
-      east.set(1, 0, 0);
-    } else {
-      east.normalize();
-    }
-    const north = new THREE.Vector3().crossVectors(up, east).normalize();
-    const heading = ((headingDeg ?? 0) * Math.PI) / 180;
-    const forward = north.multiplyScalar(Math.cos(heading)).add(east.multiplyScalar(Math.sin(heading))).normalize();
-    return new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), forward);
-  }, [coords, headingDeg, isFlight]);
-  const pulseOffset = useMemo(() => feature.id.length * 0.17, [feature.id]);
-
-  useEffect(() => {
-    if (!reducedMotion) return;
-    markerRef.current?.scale.setScalar(selected ? 1.08 + intensity * 0.28 : 0.92 + intensity * 0.18);
-    haloRef.current?.scale.setScalar(selected ? 1.28 + intensity * 0.24 : 1.02 + intensity * 0.18);
-  }, [intensity, reducedMotion, selected]);
-
-  useFrame((state) => {
-    if (reducedMotion) return;
-    const pulse = 1 + Math.sin(state.clock.elapsedTime * 2.8 + pulseOffset) * 0.14;
-    if (markerRef.current) {
-      const baseScale = selected ? 1.04 + intensity * 0.32 : 0.88 + intensity * 0.24;
-      markerRef.current.scale.setScalar(pulse * baseScale);
-    }
-    if (haloRef.current) {
-      haloRef.current.scale.setScalar(selected ? 1.18 + intensity * 0.42 : 0.96 + intensity * 0.3);
-    }
-  });
-
-  return (
-    <group
-      position={position}
-      onClick={(event) => {
-        event.stopPropagation();
-        onSelect(feature.id);
-      }}
-    >
-      <mesh ref={haloRef}>
-        <sphereGeometry args={[selected ? 0.05 + intensity * 0.02 : 0.034 + intensity * 0.014, 18, 18]} />
-        <meshBasicMaterial color={accentColor} transparent opacity={selected ? 0.28 : 0.15} />
-      </mesh>
-      {isFlight ? (
-        <mesh ref={markerRef} quaternion={orientation}>
-          <coneGeometry args={[0.011 + intensity * 0.005, 0.032 + intensity * 0.01, 8]} />
-          <meshStandardMaterial
-            color={accentColor}
-            emissive={accentColor}
-            emissiveIntensity={selected ? 1.8 : 1.25}
-          />
-        </mesh>
-      ) : (
-        <mesh ref={markerRef}>
-          <sphereGeometry args={[selected ? 0.025 + intensity * 0.012 : 0.02 + intensity * 0.008, 18, 18]} />
-          <meshStandardMaterial
-            color={accentColor}
-            emissive={accentColor}
-            emissiveIntensity={selected ? 1.7 : 1.2}
-          />
-        </mesh>
-      )}
-      {selected ? (
-        <Html distanceFactor={14}>
-          <div className="globe-tooltip">
-            <p className="globe-tooltip-title">
-              {getFeatureLabel(feature)}
-            </p>
-            <p className="globe-tooltip-copy">
-              {getFeatureTooltipCopy(
-                feature,
-                sceneId,
-                intelLens
-              )}
-            </p>
-            {tooltipDetails.map((detail) => (
-              <p key={detail} className="globe-tooltip-copy globe-tooltip-copy--detail">
-                {detail}
-              </p>
-            ))}
-          </div>
-        </Html>
-      ) : null}
-    </group>
-  );
-}
-
-function EvidencePeak({
-  accentColor,
-  feature,
-  onSelect,
-  peakScale,
-  selected
-}: {
-  accentColor: string;
-  feature: SceneFeature;
-  onSelect: (id: string) => void;
-  peakScale: number;
-  selected: boolean;
-}) {
-  const coords = Array.isArray(feature.geometry.coordinates)
-    ? (feature.geometry.coordinates as number[])
-    : [];
-  const normal = useMemo(() => {
-    if (coords.length < 2) return new THREE.Vector3(0, 1, 0);
-    return latLonToVector(coords[1], coords[0], GLOBE_RADIUS, 0).normalize();
-  }, [coords]);
-  const height = 0.055 + peakScale * 0.16 + (selected ? 0.035 : 0);
-  const position = useMemo(() => {
-    if (coords.length < 2) return new THREE.Vector3(0, 0, 0);
-    return latLonToVector(coords[1], coords[0], GLOBE_RADIUS, 0.052 + height / 2);
-  }, [coords, height]);
-  const quaternion = useMemo(
-    () => new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), normal),
-    [normal]
-  );
-
-  if (coords.length < 2) return null;
-
-  return (
-    <mesh
-      position={position}
-      quaternion={quaternion}
-      onClick={(event) => {
-        event.stopPropagation();
-        onSelect(feature.id);
-      }}
-    >
-      <coneGeometry args={[0.011 + peakScale * 0.018, height, 8, 1]} />
-      <meshBasicMaterial
-        color={accentColor}
-        transparent
-        opacity={selected ? 0.72 : 0.42}
-        depthWrite={false}
-      />
-    </mesh>
-  );
-}
-
-function GlobeScene({
-  cameraPreset,
-  contextTexture,
-  intelLens,
-  onQualityChange,
-  onSelect,
-  qualityFactor,
-  reducedMotion,
-  scene,
-  sceneId,
-  selectedFocus,
-  selectedId,
-  showIntelHotspots,
-  showIntelRegions,
-  showTrackerPoints,
-  showTrackerTrails,
-}: {
-  cameraPreset: SceneCameraPreset;
-  contextTexture: THREE.Texture | null;
-  intelLens: IntelSceneLens;
-  onQualityChange: (factor: number) => void;
-  onSelect: (id: string) => void;
-  qualityFactor: number;
-  reducedMotion: boolean;
-  scene: ScenePayload;
-  sceneId: SceneId;
-  selectedFocus: FocusTarget | null;
-  selectedId: string | null;
-  showIntelHotspots: boolean;
-  showIntelRegions: boolean;
-  showTrackerPoints: boolean;
-  showTrackerTrails: boolean;
-}) {
-  const controlsRef = useRef<any>(null);
-  const pointLayers = scene.layers.filter((layer) => layer.kind === "point");
-  const pathLayers = scene.layers.filter((layer) => layer.kind === "path");
-  const pulseLayers = scene.layers.filter((layer) => layer.kind === "pulse");
-  const liveFeatures = pointLayers
-    .flatMap((layer) => layer.features || [])
-    .filter((feature) => (isIntelFeature(feature) ? showIntelRegions : showTrackerPoints));
-  const pathFeatures = showTrackerTrails
-    ? pathLayers.flatMap((layer) => layer.features || [])
-    : [];
-  const pulseFeatures = showIntelHotspots
-    ? pulseLayers
-        .flatMap((layer) => layer.features || [])
-        .filter((feature) => pulseMatchesLens(feature, intelLens))
-    : [];
-  const peakFeatures = useMemo(() => {
-    const values = liveFeatures
-      .map((feature) => ({
-        feature,
-        rawValue: getFeaturePeakRawValue(feature, sceneId, intelLens)
-      }))
-      .filter((entry): entry is { feature: SceneFeature; rawValue: number } =>
-        typeof entry.rawValue === "number" && Number.isFinite(entry.rawValue) && entry.rawValue > 0
-      );
-    const maxRawValue = Math.max(...values.map((entry) => entry.rawValue), 1);
-    return values
-      .map((entry) => ({
-        feature: entry.feature,
-        peakScale: Math.max(0.18, Math.min(1, entry.rawValue / maxRawValue))
-      }))
-      .sort((left, right) => right.peakScale - left.peakScale)
-      .slice(0, reducedMotion ? 24 : 42);
-  }, [intelLens, liveFeatures, reducedMotion, sceneId]);
-  const activeQuality = reducedMotion ? 0.5 : qualityFactor;
-  const starsCount = reducedMotion ? 450 : Math.round(1200 + activeQuality * 2200);
-  const bloomIntensity = reducedMotion ? 0.25 : 0.35 + activeQuality * 0.55;
-  const showHotspotOverlays =
-    (sceneId === "intel" || sceneId === "overview") && showIntelHotspots;
-
-  return (
-    <Canvas
-      camera={{ position: [0, 0, 4.2], fov: 42 }}
-      dpr={reducedMotion ? 1 : [1, 1.6]}
-      performance={{ min: 0.55, debounce: 300 }}
-    >
-      <AdaptiveDprController qualityFactor={activeQuality} reducedMotion={reducedMotion} />
-      {!reducedMotion ? (
-        <PerformanceMonitor
-          bounds={(refreshrate) => (refreshrate > 100 ? [55, 100] : [40, 58])}
-          onChange={({ factor }) => onQualityChange(Math.max(0.4, factor))}
-          onFallback={() => onQualityChange(0.38)}
-        />
-      ) : null}
-      <color attach="background" args={["#02060b"]} />
-      <fog attach="fog" args={["#02060b", 4.2, 8]} />
-      <ambientLight intensity={0.42} />
-      <directionalLight
-        position={[4, 3, 5]}
-        intensity={0.85 + activeQuality * 0.55}
-        color="#c8fff0"
-      />
-      <pointLight
-        position={[-3, 2, -4]}
-        intensity={reducedMotion ? 0.45 : 0.45 + activeQuality * 0.4}
-        color="#48f1a6"
-      />
-      {!reducedMotion ? (
-        <Stars
-          radius={80}
-          depth={40}
-          count={starsCount}
-          factor={3.2}
-          saturation={0}
-          fade
-          speed={0.55}
-        />
-      ) : null}
-      <CameraRig
-        cameraPreset={cameraPreset}
-        focusTarget={selectedFocus}
-        defaults={scene.camera_defaults}
-        controlsRef={controlsRef}
-        reducedMotion={reducedMotion}
-      />
-      <group rotation={SCENE_ROTATION_VALUES}>
-        <GlobeShell
-          contextTexture={contextTexture}
-          qualityFactor={activeQuality}
-          reducedMotion={reducedMotion}
-        />
-        <group>
-          {pathFeatures.map((feature) => {
-            const trackerId = String(feature.properties?.tracker_id || "");
-            return (
-              <TrackerTrail
-                key={feature.id}
-                feature={feature}
-                active={Boolean(selectedId && trackerId === selectedId)}
-              />
-            );
-          })}
-        </group>
-        <group>
-          {showHotspotOverlays
-            ? pulseFeatures.map((feature) => (
-                <HotspotPulse
-                  key={feature.id}
-                  feature={feature}
-                  onSelect={onSelect}
-                  reducedMotion={reducedMotion}
-                  selected={selectedId === feature.id}
-                />
-              ))
-            : null}
-        </group>
-        <group>
-          {peakFeatures.map(({ feature, peakScale }) => (
-            <EvidencePeak
-              key={`peak-${feature.id}`}
-              accentColor={getFeatureAccent(feature, sceneId, intelLens)}
-              feature={feature}
-              onSelect={onSelect}
-              peakScale={peakScale}
-              selected={feature.id === selectedId}
-            />
-          ))}
-        </group>
-        <group>
-          {liveFeatures.map((feature) => (
-            <LivePoint
-              key={feature.id}
-              accentColor={getFeatureAccent(feature, sceneId, intelLens)}
-              feature={feature}
-              intensity={getFeatureIntensity(feature, sceneId, intelLens)}
-              intelLens={intelLens}
-              selected={feature.id === selectedId}
-              reducedMotion={reducedMotion}
-              sceneId={sceneId}
-              onSelect={onSelect}
-            />
-          ))}
-        </group>
-      </group>
-      <OrbitControls
-        ref={controlsRef}
-        enablePan={false}
-        enableDamping={!reducedMotion}
-        dampingFactor={0.08}
-        autoRotate={!reducedMotion && cameraPreset === "overview"}
-        autoRotateSpeed={0.35}
-        rotateSpeed={0.85}
-        zoomSpeed={0.9}
-        minDistance={2.35}
-        maxDistance={6.5}
-      />
-      <EffectComposer multisampling={0}>
-        <Bloom intensity={bloomIntensity} luminanceThreshold={0.16} mipmapBlur />
-      </EffectComposer>
-    </Canvas>
-  );
-}
 
 export function GlobeOverlay() {
   const {
@@ -1526,13 +852,13 @@ export function GlobeOverlay() {
   const [fallbackError, setFallbackError] = useState<string | null>(null);
   const [geography, setGeography] = useState<GlobeGeographyData | null>(null);
   const [geographyError, setGeographyError] = useState<string | null>(null);
-  const [qualityFactor, setQualityFactor] = useState(reducedMotion ? 0.5 : 0.82);
   const [warningsOpen, setWarningsOpen] = useState(false);
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [controlsOpen, setControlsOpen] = useState(false);
   const [browseOpen, setBrowseOpen] = useState(false);
   const [trackerOperatorDraft, setTrackerOperatorDraft] = useState(sceneState.trackerOperator);
   const sceneId = activeScene?.id || "overview";
+  const [mapToolsHost, setMapToolsHost] = useState<HTMLDivElement | null>(null);
   const hasTrackerFallback = activeScene?.fallbackStrategy === "trackerSnapshot";
   const { data, error, loading, refresh } = useApi<ScenePayload>(
     activeScenePath || "/api/osint/scene/overview?mode=combined",
@@ -1553,10 +879,6 @@ export function GlobeOverlay() {
     enabled: isOpen && sceneId === "overview",
     interval: isOpen && sceneId === "overview" ? 60000 : 0
   });
-
-  useEffect(() => {
-    setQualityFactor(reducedMotion ? 0.5 : 0.82);
-  }, [reducedMotion]);
 
   useEffect(() => {
     setTrackerOperatorDraft(sceneState.trackerOperator);
@@ -1726,20 +1048,6 @@ export function GlobeOverlay() {
     }
   }, [selectedId, visibleFocusTargets]);
 
-  const geographyTexture = useMemo(() => {
-    if (!geography) return null;
-    const canvas = buildGlobeContextCanvas(geography, reducedMotion ? 1024 : 2048);
-    const texture = new THREE.CanvasTexture(canvas);
-    texture.colorSpace = THREE.SRGBColorSpace;
-    texture.needsUpdate = true;
-    return texture;
-  }, [geography, reducedMotion]);
-
-  useEffect(() => {
-    return () => {
-      geographyTexture?.dispose();
-    };
-  }, [geographyTexture]);
 
   const selectedFocus = useMemo(
     () =>
@@ -2296,28 +1604,20 @@ export function GlobeOverlay() {
     >
       <div className="globe-overlay__backdrop" />
       <div className="globe-overlay__stage">
-        {scene ? (
-          <GlobeScene
+          <WorldMapCanvas
+            toolsHost={mapToolsHost}
+            geography={geography}
+            observations={[
+              ...visiblePointFeatures.map(feature => ({ id: feature.id, geometry: feature.geometry as Geometry, color: getFeatureAccent(feature, sceneId, sceneState.intelLens), kind: "point" as const })),
+              ...visiblePathFeatures.map(feature => ({ id: feature.id, geometry: feature.geometry as Geometry, color: "#7dffd3", kind: "path" as const })),
+              ...visiblePulseFeatures.map(feature => ({ id: feature.id, geometry: feature.geometry as Geometry, color: pulseAccent(feature), kind: "pulse" as const })),
+            ]}
             cameraPreset={sceneState.cameraPreset}
-            contextTexture={geographyTexture}
-            intelLens={sceneState.intelLens}
-            scene={scene}
-            sceneId={sceneId}
-            selectedFocus={selectedFocus}
-            selectedId={selectedId}
+            focus={selectedFocus}
             reducedMotion={reducedMotion}
-            qualityFactor={qualityFactor}
-            onQualityChange={setQualityFactor}
-            onSelect={(id) => {
-              setSelectedId(id);
-              setOverlayVisibility("detailsVisible", true);
-            }}
-            showIntelHotspots={sceneState.showIntelHotspots}
-            showIntelRegions={sceneState.showIntelRegions}
-            showTrackerPoints={sceneState.showTrackerPoints}
-            showTrackerTrails={sceneState.showTrackerTrails}
+            onSelect={id => { setSelectedId(id); setOverlayVisibility("detailsVisible", true); }}
           />
-        ) : scenePending ? (
+        {!scene && scenePending ? (
           <div className="globe-overlay__loading">
             <Orbit size={26} className="animate-spin text-emerald-300" />
             <p>Loading world view...</p>
@@ -2347,12 +1647,7 @@ export function GlobeOverlay() {
               </button>
             </div>
           </div>
-        ) : (
-          <div className="globe-overlay__loading">
-            <Orbit size={26} className="animate-spin text-emerald-300" />
-            <p>Loading world view...</p>
-          </div>
-        )}
+        ) : null}
       </div>
 
       <div className="globe-hud globe-hud--left max-h-screen overflow-y-auto">
@@ -2402,6 +1697,7 @@ export function GlobeOverlay() {
               </button>
             ))}
           </div>
+          <div ref={setMapToolsHost} />
           <div className="globe-command-summary">
             <span className="globe-badge">
               <RadioTower size={12} />
