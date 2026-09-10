@@ -4,7 +4,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { execFileSync } from "node:child_process";
 import { loadCapturedIntelGlobeFixture } from "./fixtures/globeFixtures";
-import { AREA_STORAGE_KEY, areaGeometry, centeredMercatorZoom, coordinateBounds, isImageryError, readAreas, sceneCameraTarget } from "../src/lib/worldMap";
+import { AREA_STORAGE_KEY, areaGeometry, basemapSourceLabel, centeredMercatorZoom, coordinateBounds, isImageryError, projectionForZoom, readAreas, sceneCameraTarget } from "../src/lib/worldMap";
 
 test.describe.configure({ mode: "serial" });
 
@@ -168,6 +168,7 @@ test("research-area geometry handles antimeridian and rejects invalid storage", 
   expect(() => readAreas('[{"name":"invalid"}]')).toThrow();
   expect(isImageryError({ sourceId: "imagery" })).toBe(true);
   expect(isImageryError({ sourceId: "detail" })).toBe(true);
+  expect(isImageryError({ sourceId: "street" })).toBe(true);
   for (const url of ["https://gibs.earthdata.nasa.gov.evil.invalid/tile", "https://evil.invalid/gibs.earthdata.nasa.gov", "https://gibs.earthdata.nasa.gov@evil.invalid/tile"]) {
     expect(isImageryError({ sourceId: "observations", error: { message: url } } as { sourceId: string })).toBe(false);
   }
@@ -176,6 +177,12 @@ test("research-area geometry handles antimeridian and rejects invalid storage", 
   expect(sceneCameraTarget(loadCapturedIntelGlobeFixture().scene_payload.camera_defaults)).toEqual([7.2, 17.5]);
   expect(centeredMercatorZoom([0, 0], 512, 1024)).toBeCloseTo(1, 10);
   expect(centeredMercatorZoom([180, 90], 390, 844)).toBe(19);
+  expect(basemapSourceLabel(3, "satellite")).toContain("Blue Marble");
+  expect(basemapSourceLabel(14, "satellite")).toContain("Esri");
+  expect(basemapSourceLabel(14, "street")).toBe("OpenStreetMap");
+  expect(projectionForZoom("globe", 4)).toBe("globe");
+  expect(projectionForZoom("globe", 14)).toBe("mercator");
+  expect(projectionForZoom("mercator", 4)).toBe("mercator");
 });
 
 test("area vault authenticates, migrates and refuses stale or cancelled writes", async ({ page }) => {
@@ -325,7 +332,7 @@ test("World map uses actual NASA tiles, reviewed geography and saved operator ar
   await page.screenshot({ path: "test-results/world-map-desktop.jpg", quality: 65 });
   await page.getByRole("button", { name: "Map tools", exact: true }).click();
   await page.getByLabel("Map projection", { exact: true }).selectOption("mercator");
-  await page.getByLabel("Satellite and street basemap").uncheck();
+  await page.getByLabel("Show satellite or street imagery").uncheck();
   await page.setViewportSize({ width: 390, height: 844 });
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBeTruthy();
   await page.screenshot({ path: "test-results/world-map-mobile.jpg", quality: 65 });

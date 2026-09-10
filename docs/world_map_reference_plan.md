@@ -64,12 +64,15 @@ non-temporal historical composite, **not live satellite imagery**. The actual
 were checked: EPSG:3857, JPEG, 256-pixel tiles, GoogleMapsCompatible_Level8,
 native maximum zoom 8, latitude coverage +/-85.051129 degrees.
 
-Closer zoom (from about county scale to street scale, MapLibre zoom 8–19) uses
-the same keyless Esri World Imagery MapServer that God's Eye View uses without
-API keys, with OpenStreetMap raster tiles if Esri is unreachable. That mosaic
-is recent satellite/aerial context, still **not a live stream**. No Esri, OSM
-or Google key is stored. Viewport tile coordinates and the browser IP reach
-those hosts. This does not license Esri imagery for a hosted multiuser service.
+Closer zoom uses the same keyless Esri World Imagery MapServer that God's Eye
+View uses without API keys. Esri remains the satellite layer at every zoom;
+missing tiles overzoom the parent satellite tile instead of switching to a
+street map. OpenStreetMap is an explicit operator choice, not an automatic
+fallback. That mosaic is recent satellite/aerial context, still **not a live
+stream**. No Esri, OSM or Google key is stored. Viewport tile coordinates and
+the browser IP reach those hosts. This does not license Esri imagery for a
+hosted multiuser service. Globe projection flattens above zoom 12 so satellite
+tiles stay sharp.
 No terrain elevations, precise incident polygons or new hazard feeds were added.
 
 NASA, Esri and OSM requests are direct from the browser, keyless, without
