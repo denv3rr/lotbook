@@ -5,6 +5,29 @@ export type ResearchArea = { id: string; name: string; bounds: [number, number, 
 export const AREA_STORAGE_KEY = "clear_world_research_areas_v1";
 export const BLUE_MARBLE_TILES = "https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/BlueMarble_ShadedRelief_Bathymetry/default/GoogleMapsCompatible_Level8/{z}/{y}/{x}.jpeg";
 
+export type SceneCameraDefaults = { target_lat?: number; target_lon?: number; distance?: number; pitch?: number; bearing?: number };
+export type SceneBounds = { min_lon?: number; min_lat?: number; max_lon?: number; max_lat?: number };
+export function sceneCameraTarget(defaults?: SceneCameraDefaults): [number, number] | null {
+  const lat = defaults?.target_lat; const lon = defaults?.target_lon;
+  return typeof lat === "number" && Number.isFinite(lat) && Math.abs(lat) <= 90 && typeof lon === "number" && Number.isFinite(lon) && Math.abs(lon) <= 180 ? [lon, lat] : null;
+}
+export function isImageryError(event: { sourceId?: unknown }): boolean {
+  // Source identity is attached by MapLibre; arbitrary error text is not a URL.
+  return event.sourceId === "imagery";
+}
+
+export function centeredMercatorZoom(center: [number, number], width: number, height: number): number {
+  // MapLibre's zoom-zero world is 512 CSS pixels. With no world copies, each
+  // half-viewport must fit between the requested center and the nearest edge.
+  // Mercator y = (1 - ln(tan(pi/4 + latitude/2)) / pi) / 2.
+  const latitude = Math.max(-85.05112878, Math.min(85.05112878, center[1]));
+  const x = (center[0] + 180) / 360;
+  const y = (1 - Math.log(Math.tan(Math.PI / 4 + latitude * Math.PI / 360)) / Math.PI) / 2;
+  const scale = Math.max(width / (1024 * Math.max(0, Math.min(x, 1 - x))), height / (1024 * Math.max(0, Math.min(y, 1 - y))));
+  // At projection edges an exact center is impossible; retain the map's limit.
+  return Math.max(0, Math.min(12, Math.log2(scale)));
+}
+
 export function normalizeLongitude(value: number): number {
   return ((value + 180) % 360 + 360) % 360 - 180;
 }
