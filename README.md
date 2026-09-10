@@ -2,10 +2,7 @@
 ![GitHub Created At](https://img.shields.io/github/created-at/denv3rr/clear) ![GitHub repo size](https://img.shields.io/github/repo-size/denv3rr/clear)
 
 A local-first advisory and client-management workspace with portfolio
-analytics and supporting OSINT. The dashboard opens on client relationships,
-deal pipeline and next actions. It includes DCF, trading comparables and saved
-valuation versions; World remains available from the Workspace menu.
-Dashboard and API development take priority; new advisory CLI parity is deferred.
+analytics and supporting OSINT.
 
 See [advisory/API guide](docs/banking_api.md), [valuation methods](docs/banking_valuation.md)
 and [product readiness gates](docs/advisory_product_plan.md). This is not a
@@ -16,6 +13,11 @@ This is not a general multi-agent reasoning framework. Agent git rules and
 assistant constraints are the seed of governed helper work; independent
 inspection is documented in
 [docs/inspection_verification.md](docs/inspection_verification.md).
+
+The dashboard opens on client relationships,
+deal pipeline and next actions. It includes DCF, trading comparables and saved
+valuation versions; World remains available from the Workspace menu.
+Dashboard and API development take priority; new advisory CLI parity is deferred.
 
 ## Configuration and Quick Start
 
@@ -41,12 +43,6 @@ Copy `.env.example` to `.env`. The most common variables are below.
 | `CLEAR_INCLUDE_PRIVATE` | Include private flights when set to `1`. |
 
 ### Start with one command
-
-Clear's standard-library bootstrap installs missing approved web/API runtime
-dependencies from the hash-verified `requirements-web.lock` only when needed,
-starts the API and web UI, waits for health checks, and opens the application.
-Vite compiles the frontend incrementally, so normal starts do not require a
-manual `npm run build` or rebuild the application from scratch.
 
 From the repository directory:
 
@@ -80,6 +76,12 @@ if the checkout is moved.
 Optional startup flags can follow the command directly—for example,
 `clear --detach --no-open`. Use `clear --no-install` when you want startup to
 fail instead of installing a missing hashed/locked dependency.
+
+The standard-library bootstrap installs missing approved web/API runtime
+dependencies from the hash-verified `requirements-web.lock` only when needed,
+starts the API and web UI, waits for health checks, and opens the application.
+Vite compiles the frontend incrementally, so normal starts do not require a
+manual `npm run build` or rebuild the application from scratch.
 
 ## What It Does
 
