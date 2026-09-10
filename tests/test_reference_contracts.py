@@ -42,9 +42,14 @@ def test_regime_preserves_undefined_benchmark_metrics_unit(monkeypatch):
     index = pd.date_range("2026-01-01", periods=21)
     portfolio = pd.DataFrame({"Close": [100., 101.] * 10 + [100.]}, index=index)
     benchmark = pd.DataFrame({"Close": [100.] * 21}, index=index)
-    monkeypatch.setattr(
-        regime.yf, "download", lambda ticker, **kwargs: portfolio if ticker == "UNIT" else benchmark
-    )
+    def fake_frame(tickers, period, interval):
+        frame = pd.DataFrame()
+        for ticker in tickers:
+            series = portfolio["Close"] if ticker == "UNIT" else benchmark["Close"]
+            frame[ticker] = series
+        return frame, {"error": None, "missing": []}
+
+    monkeypatch.setattr("modules.market_data.quotes.fetch_close_frame", fake_frame)
     metrics = regime.RegimeModels.generate_snapshot(
         "UNIT", "UNITBENCH", risk_free_annual=.04
     )["metrics"]

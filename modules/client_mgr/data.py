@@ -1,14 +1,11 @@
 from __future__ import annotations
 
-import io
-import contextlib
-import warnings
 import time
 from typing import Tuple, Optional, Dict, Any
 
 import pandas as pd
-import yfinance as yf
 from modules.client_mgr import calculations
+from modules.market_data.quotes import fetch_close_frame
 
 # Cache for CAPM computations to avoid redundant API calls
 _CAPM_CACHE = {}  # key -> {"ts": int, "data": dict}
@@ -26,41 +23,13 @@ def get_portfolio_and_benchmark_returns(
     if not tickers:
         return None, None, "No non-zero holdings"
 
-    download_list = sorted(set([str(t).upper() for t in tickers] + [benchmark_ticker]))
-    try:
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore", category=FutureWarning)
-            warnings.simplefilter("ignore", category=UserWarning)
-            with contextlib.redirect_stderr(io.StringIO()):
-                df = yf.download(
-                    download_list,
-                    period=period,
-                    interval=interval,
-                    progress=False,
-                    group_by="column",
-                    auto_adjust=True,
-                )
-    except Exception as exc:
-        return None, None, f"Market data error: {exc}"
-
-    if df is None or df.empty:
-        return None, None, "Market data empty"
-
-    if isinstance(df.columns, pd.MultiIndex):
-        if "Close" in df.columns.levels[0]:
-            close = df["Close"].copy()
-        elif "Adj Close" in df.columns.levels[0]:
-            close = df["Adj Close"].copy()
-        else:
-            return None, None, "Close price not available"
-    else:
-        close = df["Close"] if "Close" in df else df.get("Adj Close")
-        if close is None:
-            return None, None, "Close price not available"
-        if isinstance(close, pd.Series):
-            if len(download_list) != 1:
-                return None, None, "Ticker identity unavailable in price data"
-            close = close.to_frame(download_list[0])
+    download_list = sorted(set([str(t).upper() for t in tickers] + [str(benchmark_ticker).upper()]))
+    close, snapshot = fetch_close_frame(download_list, period, interval)
+    if close is None or close.empty:
+        reason = snapshot.get("error") or "Market data empty"
+        if len(download_list) > 1 and snapshot.get("missing"):
+            return None, None, "Ticker identity unavailable in price data"
+        return None, None, str(reason)
 
     bench = str(benchmark_ticker).upper()
     if bench not in close.columns:

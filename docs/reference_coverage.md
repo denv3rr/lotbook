@@ -56,13 +56,13 @@ in the register are evidence checkpoints, not automatic update guarantees.
 | AI RMF | Assistant scope/provenance and export boundaries; assistant tests | No complete AI governance/evaluation/monitoring program |
 | Section 508 | Keyboard/labels/reduced-motion/non-canvas controls; isolated browser tests | No full conformance, screen-reader or document-export assessment |
 | MIL-STD-882 | Owned-process and non-overwrite safeguards; launcher/recovery tests | No formal hazard log, safety acceptance or DoD certification |
-| Fractional returns | Shared-date/current-holdings reconstruction; arithmetic regression tests | Not cash-flow-adjusted account performance |
+| Fractional returns | Shared-date/current-holdings reconstruction; arithmetic regression tests | Not cash-flow-adjusted account performance. TWR/XIRR exist on the ledger route but stay unavailable without an ending market value |
 | Sharpe | Shared calculations and dashboard payloads; toolkit/reference tests | Constant risk-free convention and scaling assumptions disclosed |
 | RiskMetrics | EWMA and historical-tail helpers; financial/reference tests | Explicit Clear empirical-tail convention, not Basel ES |
 | DOJ HHI | View-model sector-share squares; view-model tests | Fractional sector concentration, not firm competition or investment suitability |
 | NIST CUSUM | Retrospective two-sided detector; financial tests | Full-window calibration, not a streaming forecasting engine |
 | CAPM | Aligned covariance/variance, alpha and tracking metrics; financial tests | Historical estimates; undefined variance is unavailable |
-| Permutation entropy | Ordinal-pattern counts in calculations/patterns; financial tests | Legacy tie/insufficient-input handling remains open |
+| Permutation entropy | Ordinal-pattern counts in calculations/patterns; financial tests | Insufficient inputs return unavailable; a defined zero remains possible for a constant series |
 | Hurst | Disjoint-block R/S in calculations/patterns; financial/regression tests | Clipped estimate, not proven predictability or an unbiased estimator |
 | Basel MAR33 | Explicit exclusion in methods and code; empirical-tail tests | Background only; capital calculations are not implemented |
 

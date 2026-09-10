@@ -17,6 +17,7 @@ const CRYPTO_KEY_ID = "api-key-encryption-v1";
 
 let sessionCryptoKeyPromise: Promise<CryptoKey> | null = null;
 let runtimeApiKey: string | null = null;
+let decryptedApiKey: string | null | undefined;
 
 function openCryptoKeyDatabase(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
@@ -129,9 +130,21 @@ type ApiMeta = {
 };
 
 const cache = new Map<string, CacheEntry<unknown>>();
+const inflight = new Map<string, Promise<unknown>>();
 
 function cacheKey(path: string) {
   return `${API_BASE}${path}`;
+}
+
+export function invalidateApiCache(pathPrefix?: string) {
+  if (!pathPrefix) {
+    cache.clear();
+    return;
+  }
+  const match = cacheKey(pathPrefix);
+  for (const key of [...cache.keys()]) {
+    if (key.startsWith(match) || key.includes(pathPrefix)) cache.delete(key);
+  }
 }
 
 export function extractWarnings(payload: unknown): string[] {
@@ -153,12 +166,16 @@ async function parseJson<T>(response: Response): Promise<T> {
 
 export async function getApiKey(): Promise<string | null> {
   if (runtimeApiKey) return runtimeApiKey;
+  if (decryptedApiKey !== undefined) return decryptedApiKey;
   try {
     const sessionValue = sessionStorage.getItem(SESSION_KEY);
     if (sessionValue) {
       try {
         const decrypted = await decryptApiKey(sessionValue);
-        if (decrypted) return decrypted;
+        if (decrypted) {
+          decryptedApiKey = decrypted;
+          return decrypted;
+        }
       } catch {
         sessionStorage.removeItem(SESSION_KEY);
       }
@@ -173,7 +190,10 @@ export async function getApiKey(): Promise<string | null> {
     if (localValue) {
       try {
         const decrypted = await decryptApiKey(localValue);
-        if (decrypted) return decrypted;
+        if (decrypted) {
+          decryptedApiKey = decrypted;
+          return decrypted;
+        }
       } catch {
         localStorage.removeItem(LOCAL_KEY);
       }
@@ -182,7 +202,9 @@ export async function getApiKey(): Promise<string | null> {
   } catch {
     // Environment configuration remains available when device storage is blocked.
   }
-  return ENV_API_KEY || null;
+  const resolved = ENV_API_KEY || null;
+  decryptedApiKey = resolved;
+  return resolved;
 }
 
 export function getApiKeyScope(): ApiKeyScope {
@@ -214,6 +236,7 @@ export async function setApiKey(
         // The newly persisted key remains authoritative.
       }
       runtimeApiKey = null;
+      decryptedApiKey = undefined;
       return "local";
     } else {
       sessionStorage.setItem(SESSION_KEY, encrypted);
@@ -223,6 +246,7 @@ export async function setApiKey(
         // The newly saved session key remains authoritative.
       }
       runtimeApiKey = null;
+      decryptedApiKey = undefined;
       return "session";
     }
   } catch {
@@ -248,6 +272,7 @@ export async function setApiKey(
 
 export function clearApiKey(): void {
   runtimeApiKey = null;
+  decryptedApiKey = undefined;
   try {
     localStorage.removeItem(LOCAL_KEY);
   } catch {
@@ -314,32 +339,56 @@ export async function apiGet<T>(path: string, ttl = 0, signal?: AbortSignal): Pr
       return existing.data;
     }
   }
-  const headers: Record<string, string> = {};
-  const apiKey = await getApiKey();
-  if (apiKey) {
-    headers["X-API-Key"] = apiKey;
+  if (signal?.aborted) {
+    throw new DOMException("Aborted", "AbortError");
   }
-  let response: Response;
-  try {
-    response = await fetch(`${API_BASE}${path}`, { headers, signal });
-  } catch (err) {
-    if (signal?.aborted || _isAbortError(err)) {
-      throw new DOMException("Aborted", "AbortError");
+  let pending = inflight.get(key) as Promise<T> | undefined;
+  if (!pending) {
+    pending = (async () => {
+      const headers: Record<string, string> = {};
+      const apiKey = await getApiKey();
+      if (apiKey) {
+        headers["X-API-Key"] = apiKey;
+      }
+      let response: Response;
+      try {
+        response = await fetch(`${API_BASE}${path}`, { headers });
+      } catch (err) {
+        const detail = err instanceof Error ? err.message : "Network error";
+        const cspHint = /failed to fetch|networkerror/i.test(detail)
+          ? " Check CSP connect-src allows the API base."
+          : "";
+        throw new Error(`API unreachable at ${API_BASE}. ${detail}${cspHint}`);
+      }
+      if (!response.ok) {
+        throw await responseError(response);
+      }
+      const payload = await parseJson<T>(response);
+      if (ttl > 0) {
+        cache.set(key, { ts: Date.now(), ttl, data: payload });
+      }
+      return payload;
+    })().finally(() => {
+      inflight.delete(key);
+    });
+    inflight.set(key, pending);
+  }
+  if (!signal) return pending;
+  return new Promise<T>((resolve, reject) => {
+    const abort = () => reject(new DOMException("Aborted", "AbortError"));
+    if (signal.aborted) {
+      abort();
+      return;
     }
-    const detail = err instanceof Error ? err.message : "Network error";
-    const cspHint = /failed to fetch|networkerror/i.test(detail)
-      ? " Check CSP connect-src allows the API base."
-      : "";
-    throw new Error(`API unreachable at ${API_BASE}. ${detail}${cspHint}`);
-  }
-  if (!response.ok) {
-    throw await responseError(response);
-  }
-  const payload = await parseJson<T>(response);
-  if (ttl > 0) {
-    cache.set(key, { ts: Date.now(), ttl, data: payload });
-  }
-  return payload;
+    signal.addEventListener("abort", abort, { once: true });
+    pending!.then((value) => {
+      signal.removeEventListener("abort", abort);
+      resolve(value);
+    }, (error) => {
+      signal.removeEventListener("abort", abort);
+      reject(error);
+    });
+  });
 }
 
 type WriteMethod = "POST" | "PATCH" | "PUT" | "DELETE";
@@ -374,6 +423,10 @@ export function apiPost<T>(path: string, body?: unknown): Promise<T> {
 
 export function apiPatch<T>(path: string, body?: unknown): Promise<T> {
   return apiWrite<T>(path, "PATCH", body);
+}
+
+export function apiPut<T>(path: string, body?: unknown): Promise<T> {
+  return apiWrite<T>(path, "PUT", body);
 }
 
 type UseApiOptions = {

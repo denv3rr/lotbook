@@ -1,4 +1,4 @@
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { AreaSparkline, DistributionBars } from "../components/ui/Charts";
 import { Card } from "../components/ui/Card";
@@ -8,8 +8,8 @@ import { KpiCard } from "../components/ui/KpiCard";
 import { SectionHeader } from "../components/ui/SectionHeader";
 import { Surface3D } from "../components/ui/Surface3D";
 import { VisualizationGuide } from "../components/ui/VisualizationGuide";
-import { Modal } from "../components/ui/Modal";
-import { apiGet, apiPatch, apiPost, useApi } from "../lib/api";
+import { apiGet, apiPatch, apiPost, invalidateApiCache, useApi } from "../lib/api";
+import { PositionsBook } from "../components/clients/PositionsBook";
 
 type ClientSummary = {
   client_id: string;
@@ -132,9 +132,14 @@ type DashboardPayload = {
   regime: RegimePayload;
   diagnostics?: {
     sectors: { sector: string; value: number; pct: number }[];
-    hhi: number;
+    hhi: number | null;
     gainers: { ticker: string; pct: number; change: number }[];
     losers: { ticker: string; pct: number; change: number }[];
+  };
+  market_snapshot?: {
+    source?: string;
+    label?: string;
+    cache?: string;
   };
   warnings: string[];
 };
@@ -245,18 +250,13 @@ export default function Clients() {
   const [diagnosticsOpen, setDiagnosticsOpen] = useState(false);
   const [manualOpen, setManualOpen] = useState(false);
   const [dashboardEpoch, setDashboardEpoch] = useState(0);
-  const [lotForm, setLotForm] = useState({
-    ticker: "",
-    qty: "",
-    basis: "",
-    timestamp: ""
-  });
+  const dashboardPathRef = useRef("");
   const [formMode, setFormMode] = useState<"create" | "edit" | null>(null);
   const [accountFormOpen, setAccountFormOpen] = useState(false);
   const [accountEditOpen, setAccountEditOpen] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [formSaving, setFormSaving] = useState(false);
-  const [lotPendingRemove, setLotPendingRemove] = useState<{ ticker: string; index: number } | null>(null);
+
   const [clientForm, setClientForm] = useState({
     name: "",
     risk_profile: "",
@@ -332,12 +332,10 @@ export default function Clients() {
     if (selectedAccount === "portfolio") {
       setAccountEditOpen(false);
     }
-    setLotForm({ ticker: "", qty: "", basis: "", timestamp: "" });
   }, [selectedAccount]);
 
   useEffect(() => {
     const controller = new AbortController();
-    setDashboard(null);
     setDashboardError(null);
     setDashboardLoading(Boolean(selectedId));
     if (!selectedId) return;
@@ -347,7 +345,11 @@ export default function Clients() {
         : `/api/clients/${encodeURIComponent(selectedId)}/accounts/${encodeURIComponent(
             selectedAccount
           )}/dashboard?interval=${encodeURIComponent(interval)}`;
-    apiGet<DashboardPayload>(path, 0, controller.signal)
+    if (dashboardPathRef.current !== path) {
+      setDashboard(null);
+      dashboardPathRef.current = path;
+    }
+    apiGet<DashboardPayload>(path, 20000, controller.signal)
       .then((payload) => {
         if (controller.signal.aborted) return;
         setDashboard(payload);
@@ -430,21 +432,6 @@ export default function Clients() {
     if (!detail?.accounts?.length || selectedAccount === "portfolio") return null;
     return detail.accounts.find((account) => account.account_id === selectedAccount) || null;
   }, [detail, selectedAccount]);
-
-  const lotRows = useMemo(() => {
-    const lots = selectedAccountDetail?.lots || {};
-    const rows: Array<LotEntry & { ticker: string; index: number }> = [];
-    Object.entries(lots).forEach(([ticker, entries]) => {
-      (entries || []).forEach((lot, index) => {
-        rows.push({ ticker, index, ...lot });
-      });
-    });
-    return rows.sort((left, right) => {
-      const tickerOrder = left.ticker.localeCompare(right.ticker);
-      if (tickerOrder !== 0) return tickerOrder;
-      return String(left.timestamp || "").localeCompare(String(right.timestamp || ""));
-    });
-  }, [selectedAccountDetail]);
 
   const accountRows = useMemo(() => {
     if (!detail?.accounts?.length) return [];
@@ -656,86 +643,6 @@ export default function Clients() {
     }
   };
 
-  const cloneAccountLots = (lots: AccountDetail["lots"]): Record<string, LotEntry[]> => {
-    const next: Record<string, LotEntry[]> = {};
-    Object.entries(lots || {}).forEach(([ticker, entries]) => {
-      next[ticker] = (entries || []).map((lot) => ({
-        qty: lot.qty,
-        basis: lot.basis,
-        timestamp: lot.timestamp,
-        ...(lot.source ? { source: lot.source } : {}),
-        ...(lot.kind ? { kind: lot.kind } : {})
-      }));
-    });
-    return next;
-  };
-
-  const persistAccountLots = async (lots: Record<string, LotEntry[]>): Promise<boolean> => {
-    if (!selectedId || selectedAccount === "portfolio") return false;
-    setFormSaving(true);
-    setFormError(null);
-    try {
-      const updated = await apiPatch<AccountWriteResponse>(
-        `/api/clients/${encodeURIComponent(selectedId)}/accounts/${encodeURIComponent(selectedAccount)}`,
-        { lots }
-      );
-      setDetail(updated.client);
-      setDashboardEpoch((value) => value + 1);
-      await refreshIndex();
-      return true;
-    } catch (err) {
-      setFormError(err instanceof Error ? err.message : "Failed to update lots.");
-      return false;
-    } finally {
-      setFormSaving(false);
-    }
-  };
-
-  const handleAddLot = async (event: FormEvent) => {
-    event.preventDefault();
-    if (!selectedAccountDetail) return;
-    const ticker = lotForm.ticker.trim().toUpperCase();
-    const qty = Number(lotForm.qty);
-    const basis = Number(lotForm.basis);
-    const timestamp = lotForm.timestamp.trim();
-    if (!ticker || !timestamp || !Number.isFinite(qty) || !Number.isFinite(basis)) {
-      setFormError("Lot requires ticker, quantity, basis, and date.");
-      return;
-    }
-    const nextLots = cloneAccountLots(selectedAccountDetail.lots);
-    const existingKey =
-      Object.keys(nextLots).find((key) => key.toUpperCase() === ticker) || ticker;
-    nextLots[existingKey] = [
-      ...(nextLots[existingKey] || []),
-      { qty, basis, timestamp }
-    ];
-    const saved = await persistAccountLots(nextLots);
-    if (saved) {
-      setLotForm({ ticker: "", qty: "", basis: "", timestamp: "" });
-    }
-  };
-
-  const handleRemoveLot = (ticker: string, index: number) => {
-    setLotPendingRemove({ ticker, index });
-  };
-
-  const confirmRemoveLot = async () => {
-    if (!selectedAccountDetail || !lotPendingRemove) return;
-    const nextLots = cloneAccountLots(selectedAccountDetail.lots);
-    const remaining = (nextLots[lotPendingRemove.ticker] || []).filter(
-      (_, lotIndex) => lotIndex !== lotPendingRemove.index
-    );
-    if (remaining.length) {
-      nextLots[lotPendingRemove.ticker] = remaining;
-    } else {
-      delete nextLots[lotPendingRemove.ticker];
-    }
-    const saved = await persistAccountLots(nextLots);
-    if (saved) {
-      setLotPendingRemove(null);
-    }
-  };
-
   return (
     <Card className="rounded-2xl p-5">
       <SectionHeader
@@ -747,40 +654,6 @@ export default function Clients() {
             : `${summary.clients} clients`
         }
       />
-      <Modal
-        open={Boolean(lotPendingRemove)}
-        title="Remove lot"
-        description="This deletes the lot and recomputes the account holding quantity from the remaining lots."
-        onClose={() => (formSaving ? null : setLotPendingRemove(null))}
-        footer={
-          <>
-            <button
-              type="button"
-              disabled={formSaving}
-              onClick={() => setLotPendingRemove(null)}
-              className="rounded-full border border-slate-700/70 px-3 py-1 text-[11px] text-slate-300 hover:border-slate-500 disabled:opacity-50"
-            >
-              Cancel
-            </button>
-            <button
-              type="button"
-              disabled={formSaving}
-              onClick={() => {
-                void confirmRemoveLot();
-              }}
-              className="rounded-full border border-amber-400/60 bg-amber-500/10 px-3 py-1 text-[11px] text-amber-200 hover:border-amber-300 disabled:opacity-50"
-            >
-              {formSaving ? "Removing..." : "Remove lot"}
-            </button>
-          </>
-        }
-      >
-        <p className="text-xs text-slate-300">
-          {lotPendingRemove
-            ? `Remove ${lotPendingRemove.ticker} lot ${lotPendingRemove.index + 1}? This cannot be undone.`
-            : "Select a lot to remove."}
-        </p>
-      </Modal>
       <ErrorBanner messages={errorMessages} onRetry={refreshIndex} />
       <div className="mt-6 grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-4 gap-6">
         <div className="space-y-3 text-sm text-slate-300">
@@ -1355,7 +1228,7 @@ export default function Clients() {
                     ))}
                   </div>
                 ) : null}
-                <p className="mt-2" role="status">{dashboardLoading ? "Loading market snapshot…" : dashboard ? "Snapshot data; provider prices may be delayed. Not a live quote stream." : "Market snapshot unavailable."}</p>
+                <p className="mt-2" role="status">{dashboardLoading ? "Loading market snapshot…" : dashboard ? `${dashboard.market_snapshot?.label || "Snapshot data; not a live quote stream."}${dashboard.market_snapshot?.cache ? ` Cache: ${dashboard.market_snapshot.cache}.` : ""}` : "Market snapshot unavailable."}</p>
                 <button type="button" disabled={dashboardLoading} onClick={() => setDashboardEpoch(value => value + 1)} className="mt-2 rounded-full border border-slate-700 px-3 py-1 disabled:opacity-50">
                   {dashboardLoading ? "Refreshing…" : "Refresh snapshot"}
                 </button>
@@ -1756,118 +1629,26 @@ export default function Clients() {
 
               {selectedAccount !== "portfolio" ? (
               <Collapsible
-                title="Lots"
-                meta={
-                  selectedAccountDetail
-                    ? `${lotRows.length} lot${lotRows.length === 1 ? "" : "s"}`
-                    : "Select an account"
-                }
+                title="Holdings book"
+                meta="Lots, cash, and cash-flow events"
                 open={lotsOpen}
                 onToggle={() => setLotsOpen((prev) => !prev)}
               >
-            {selectedAccountDetail ? (
-              <div className="space-y-4">
-                {lotRows.length ? (
-                  <div className="space-y-3">
-                    {lotRows.map((lot) => (
-                      <div
-                        key={`${lot.ticker}-${lot.index}-${lot.timestamp}`}
-                        className="rounded-xl border border-slate-700 p-4 text-xs text-slate-100"
-                      >
-                        <div className="flex items-center justify-between gap-3">
-                          <p className="text-slate-100 font-medium">{lot.ticker}</p>
-                          <button
-                            type="button"
-                            disabled={formSaving}
-                            onClick={() => handleRemoveLot(lot.ticker, lot.index)}
-                            className="rounded-full border border-slate-700 px-3 py-1 text-[11px] text-slate-100 hover:text-green-500"
-                          >
-                            Remove
-                          </button>
-                        </div>
-                        <div className="mt-2 grid grid-cols-1 md:grid-cols-3 gap-2 text-slate-100">
-                          <span>Qty {Number(lot.qty).toFixed(2)}</span>
-                          <span>Basis {Number(lot.basis).toFixed(2)}</span>
-                          <span>{lot.timestamp || "No timestamp"}</span>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="text-xs text-slate-400">No lots recorded for this account.</p>
-                )}
-                <form className="rounded-xl border border-slate-700 p-4 space-y-4" onSubmit={handleAddLot}>
-                  <p className="text-xs font-semibold text-slate-200">Add Lot</p>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <label className="text-xs text-slate-400" htmlFor="lot-ticker">
-                        Ticker
-                      </label>
-                      <input
-                        id="lot-ticker"
-                        value={lotForm.ticker}
-                        onChange={(event) => setLotForm({ ...lotForm, ticker: event.target.value })}
-                        className="mt-2 w-full rounded-xl bg-ink-950/60 border border-slate-800 px-3 py-2 text-sm text-slate-200"
-                        required
-                      />
-                    </div>
-                    <div>
-                      <label className="text-xs text-slate-400" htmlFor="lot-qty">
-                        Quantity
-                      </label>
-                      <input
-                        id="lot-qty"
-                        type="number"
-                        step="any"
-                        value={lotForm.qty}
-                        onChange={(event) => setLotForm({ ...lotForm, qty: event.target.value })}
-                        className="mt-2 w-full rounded-xl bg-ink-950/60 border border-slate-800 px-3 py-2 text-sm text-slate-200"
-                        required
-                      />
-                    </div>
-                    <div>
-                      <label className="text-xs text-slate-400" htmlFor="lot-basis">
-                        Basis
-                      </label>
-                      <input
-                        id="lot-basis"
-                        type="number"
-                        step="any"
-                        value={lotForm.basis}
-                        onChange={(event) => setLotForm({ ...lotForm, basis: event.target.value })}
-                        className="mt-2 w-full rounded-xl bg-ink-950/60 border border-slate-800 px-3 py-2 text-sm text-slate-200"
-                        required
-                      />
-                    </div>
-                    <div>
-                      <label className="text-xs text-slate-400" htmlFor="lot-timestamp">
-                        Date
-                      </label>
-                      <input
-                        id="lot-timestamp"
-                        type="date"
-                        value={lotForm.timestamp}
-                        onChange={(event) =>
-                          setLotForm({ ...lotForm, timestamp: event.target.value })
-                        }
-                        className="mt-2 w-full rounded-xl bg-ink-950/60 border border-slate-800 px-3 py-2 text-sm text-slate-200"
-                        required
-                      />
-                    </div>
-                  </div>
-                  <div className="flex items-center justify-end">
-                    <button
-                      type="submit"
-                      disabled={formSaving || !selectedAccountDetail}
-                      className="rounded-full border border-emerald-400/70 px-4 py-1 text-xs text-emerald-200"
-                    >
-                      {formSaving ? "Saving..." : "Add Lot"}
-                    </button>
-                  </div>
-                </form>
-              </div>
+            {selectedId && selectedAccountDetail ? (
+              <PositionsBook
+                clientId={selectedId}
+                accountId={selectedAccount}
+                disabled={formSaving}
+                onSaved={async () => {
+                  invalidateApiCache("/api/clients/");
+                  setDashboardEpoch((value) => value + 1);
+                  const detailPayload = await apiGet<ClientDetail>(`/api/clients/${encodeURIComponent(selectedId)}`);
+                  setDetail(detailPayload);
+                  await refreshIndex();
+                }}
+              />
             ) : (
-              <p className="text-xs text-slate-400">Select an account to manage lots.</p>
+              <p className="text-xs text-slate-400">Select an account to manage lots and cash.</p>
             )}
               </Collapsible>
               ) : null}
@@ -1889,7 +1670,7 @@ export default function Clients() {
                         <span className="text-green-300">{(row.pct * 100).toFixed(1)}%</span>
                       </div>
                     ))}
-                    <div className="pt-2 text-slate-300">HHI {dashboard.diagnostics.hhi.toFixed(3)}</div>
+                    <div className="pt-2 text-slate-300">HHI {dashboard.diagnostics.hhi == null ? "unavailable without priced holdings" : dashboard.diagnostics.hhi.toFixed(3)}</div>
                   </div>
                 ) : (
                   <p className="text-slate-400">No sector data available.</p>

@@ -83,13 +83,84 @@ class TaskInput(RecordInput):
 
 class ValuationInput(RecordInput):
     name: Text
-    model_kind: Literal["dcf", "comps"]
+    model_kind: Literal["dcf", "comps", "wacc", "merger", "lbo", "precedent"]
     inputs: dict
     deal_id: str | None = Field(default=None, max_length=80)
     supersedes_id: str | None = Field(default=None, max_length=80)
 
 
-SCHEMAS = {"deals": DealInput, "contacts": ContactInput, "tasks": TaskInput, "valuations": ValuationInput}
+class IntakeInput(RecordInput):
+    title: Text
+    intake_kind: Literal["statement", "peer", "precedent"]
+    period_end: date
+    period_type: Literal["annual", "quarter", "ltm", "ntm"]
+    currency: str = Field(pattern=r"^[A-Z]{3}$")
+    units: Literal["ones", "thousands", "millions"]
+    source_document: str = Field(min_length=1, max_length=4000)
+    restatement_of: str | None = Field(default=None, max_length=80)
+    review_status: Literal["draft", "in_review", "approved", "rejected"] = "draft"
+    facts: dict = Field(default_factory=dict)
+    deal_id: str | None = Field(default=None, max_length=80)
+
+    @field_validator("facts")
+    @classmethod
+    def finite_facts(cls, value: dict) -> dict:
+        if not isinstance(value, dict) or len(value) > 80:
+            raise ValueError("Facts must be a named map of at most 80 amounts.")
+        cleaned = {}
+        for key, amount in value.items():
+            name = " ".join(str(key).split())
+            if not name or len(name) > 80:
+                raise ValueError("Each fact needs a short name.")
+            cleaned[name] = str(decimal_input(amount))
+        return cleaned
+
+
+class PartyInput(RecordInput):
+    deal_id: str = Field(min_length=1, max_length=80)
+    name: Text
+    role: Literal["buyer", "seller", "investor", "lender", "counsel", "accountant", "other"]
+    nda_status: Literal["none", "requested", "signed", "expired"] = "none"
+    notes: str = Field(default="", max_length=4000)
+
+
+class BidInput(RecordInput):
+    deal_id: str = Field(min_length=1, max_length=80)
+    party_id: str = Field(min_length=1, max_length=80)
+    currency: str = Field(pattern=r"^[A-Z]{3}$")
+    amount: Amount = Field(gt=0)
+    bid_type: Literal["indicative", "final", "revised"]
+    expires_on: date | None = None
+    notes: str = Field(default="", max_length=4000)
+
+
+class DocumentInput(RecordInput):
+    deal_id: str = Field(min_length=1, max_length=80)
+    title: Text
+    version_label: Text
+    classification: Literal["internal", "client", "restricted"]
+    supersedes_id: str | None = Field(default=None, max_length=80)
+    access_list: list[str] = Field(default_factory=list, max_length=40)
+
+
+class ApprovalInput(RecordInput):
+    deal_id: str = Field(min_length=1, max_length=80)
+    title: Text
+    status: Literal["pending", "approved", "rejected"] = "pending"
+    decision_note: str = Field(default="", max_length=4000)
+
+
+SCHEMAS = {
+    "deals": DealInput,
+    "contacts": ContactInput,
+    "tasks": TaskInput,
+    "valuations": ValuationInput,
+    "intake": IntakeInput,
+    "parties": PartyInput,
+    "bids": BidInput,
+    "documents": DocumentInput,
+    "approvals": ApprovalInput,
+}
 
 
 class BankingRecord(Base):
@@ -124,7 +195,7 @@ def present(row: BankingRecord) -> dict:
 
 
 def identity(kind: str, data: dict, record_id: str) -> str:
-    if kind in ("tasks", "valuations"):
+    if kind in ("tasks", "valuations", "intake", "parties", "bids", "documents", "approvals"):
         return record_id
     return " ".join(data["name"].casefold().split()) + ("|" + data["email"].casefold() if kind == "contacts" else "")
 
@@ -150,18 +221,46 @@ def save_record(db: Session, kind: str, body: dict, record_id: str | None = None
     client = db.query(Client).filter(Client.client_uid == data["client_id"]).one_or_none()
     if client is None:
         raise LookupError("Choose an existing client.")
-    if kind in ("tasks", "valuations") and data.get("deal_id"):
+    if kind in ("tasks", "valuations", "intake", "parties", "bids", "documents", "approvals") and data.get("deal_id"):
         deal = db.get(BankingRecord, data["deal_id"])
         if deal is None or deal.kind != "deals" or deal.client_pk != client.id:
             raise ValueError("The linked deal must belong to the same client.")
+    if kind == "parties" and data.get("nda_status") == "signed":
+        data["access_granted"] = False
+    if kind == "bids":
+        party = db.get(BankingRecord, data["party_id"])
+        if party is None or party.kind != "parties" or party.client_pk != client.id or party.payload.get("deal_id") != data["deal_id"]:
+            raise ValueError("A bid must reference a party on the same deal and client.")
+    if kind == "documents":
+        if data.get("supersedes_id"):
+            prior = db.get(BankingRecord, data["supersedes_id"])
+            if prior is None or prior.kind != "documents" or prior.client_pk != client.id:
+                raise ValueError("A document version must supersede a document for the same client.")
+        data["content"] = None
+    if kind == "intake" and data.get("restatement_of"):
+        prior = db.get(BankingRecord, data["restatement_of"])
+        if prior is None or prior.kind != "intake" or prior.client_pk != client.id:
+            raise ValueError("A restatement must point to an intake record for the same client.")
     if kind == "valuations":
         from modules.banking.valuation import DcfInputs, calculate_dcf
         from modules.banking.comparables import CompsInputs, calculate_comps
+        from modules.banking.screening import WaccInputs, calculate_wacc
+        from modules.banking.deals_math import LboInputs, MergerInputs, PrecedentInputs, calculate_lbo, calculate_merger, calculate_precedent
         if data.get("supersedes_id"):
             prior = db.get(BankingRecord, data["supersedes_id"])
             if prior is None or prior.kind != kind or prior.client_pk != client.id or prior.payload["model_kind"] != data["model_kind"]:
                 raise ValueError("The prior version must be a valuation of this type for the same client.")
-        calculate, model = (calculate_dcf, DcfInputs) if data["model_kind"] == "dcf" else (calculate_comps, CompsInputs)
+        calculators = {
+            "dcf": (calculate_dcf, DcfInputs),
+            "comps": (calculate_comps, CompsInputs),
+            "wacc": (calculate_wacc, WaccInputs),
+            "merger": (calculate_merger, MergerInputs),
+            "lbo": (calculate_lbo, LboInputs),
+            "precedent": (calculate_precedent, PrecedentInputs),
+        }
+        if data["model_kind"] not in calculators:
+            raise ValueError("This model type cannot be saved yet.")
+        calculate, model = calculators[data["model_kind"]]
         data["result"] = calculate(model.model_validate(data["inputs"]))
     stamp = utc_now()
     entity_id = record_id or str(uuid4())

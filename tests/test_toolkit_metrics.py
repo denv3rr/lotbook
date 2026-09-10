@@ -14,8 +14,8 @@ class ToolkitMetricsTests(unittest.TestCase):
     def test_market_data_failure_does_not_expose_exception_detail(self):
         toolkit = FinancialToolkit(Client())
         with mock.patch(
-            "modules.client_mgr.toolkit.yf.download",
-            side_effect=RuntimeError("PRIVATE_MARKET_SENTINEL"),
+            "modules.client_mgr.toolkit.fetch_close_frame",
+            return_value=(pd.DataFrame(), {"error": "Market data unavailable."}),
         ):
             portfolio, benchmark, error = toolkit._get_portfolio_and_benchmark_returns(
                 {"AAPL": 1.0},

@@ -53,6 +53,7 @@ class TestFinancialCalculations(unittest.TestCase):
         returns = pd.Series([0.01, 0.01, 0.01, 0.01, 0.01])
         entropy = calculations.shannon_entropy(returns)
         self.assertAlmostEqual(entropy, 0.0, places=6)
+        self.assertIsNone(calculations.shannon_entropy(pd.Series([0.01, 0.02])))
 
     def test_permutation_entropy(self):
         values = [1.0, 2.0, 3.0, 4.0]

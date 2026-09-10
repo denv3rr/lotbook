@@ -1,10 +1,6 @@
 import numpy as np
 import pandas as pd
-import yfinance as yf
 import time
-import io
-import warnings
-import contextlib
 import logging
 import os
 import json
@@ -26,6 +22,7 @@ from modules.client_mgr.toolkit_payloads import (
 from modules.client_mgr.toolkit_runs import ToolkitRunMixin
 from modules.client_mgr.valuation import ValuationEngine
 from modules.client_mgr.toolkit_ai import build_ai_panel
+from modules.market_data.quotes import fetch_close_frame
 
 # Cache for CAPM computations to avoid redundant API calls
 _CAPM_CACHE = {}  # key -> {"ts": int, "data": dict}
@@ -244,42 +241,10 @@ class FinancialToolkit(ToolkitPayloadsMixin, ToolkitRunMixin, ToolkitMenuMixin):
         if not tickers:
             return None, None, "No non-zero holdings"
 
-        download_list = sorted(set([str(t).upper() for t in tickers] + [benchmark_ticker]))
-        try:
-            with warnings.catch_warnings():
-                warnings.simplefilter("ignore", category=FutureWarning)
-                warnings.simplefilter("ignore", category=UserWarning)
-                with contextlib.redirect_stderr(io.StringIO()):
-                    df = yf.download(
-                        download_list,
-                        period=period,
-                        interval=interval,
-                        progress=False,
-                        group_by="column",
-                        auto_adjust=True,
-                    )
-        except Exception as exc:
-            return None, None, "Market data unavailable."
-
-        if df is None or df.empty:
-            return None, None, "Market data empty"
-
-        if isinstance(df.columns, pd.MultiIndex):
-            if "Close" in df.columns.levels[0]:
-                close = df["Close"].copy()
-            elif "Adj Close" in df.columns.levels[0]:
-                close = df["Adj Close"].copy()
-            else:
-                return None, None, "Close price not available"
-        else:
-            close = df["Close"] if "Close" in df else df.get("Adj Close")
-            if close is None:
-                return None, None, "Close price not available"
-
-        if isinstance(close, pd.Series):
-            if len(download_list) != 1:
-                return None, None, "Ticker-labelled close prices required"
-            close = close.to_frame(download_list[0])
+        download_list = sorted(set([str(t).upper() for t in tickers] + [str(benchmark_ticker).upper()]))
+        close, snapshot = fetch_close_frame(download_list, period, interval)
+        if close is None or close.empty:
+            return None, None, snapshot.get("error") or "Market data unavailable."
         bench = str(benchmark_ticker).upper()
         if bench not in close.columns:
             return None, None, f"Benchmark '{bench}' missing"
@@ -348,72 +313,18 @@ class FinancialToolkit(ToolkitPayloadsMixin, ToolkitRunMixin, ToolkitMenuMixin):
                 _CAPM_CACHE[key] = {"ts": ts, "data": data}
                 return data
 
-            download_list = sorted(set(tickers + [str(benchmark_ticker).upper()]))
-
-            with warnings.catch_warnings():
-                warnings.simplefilter("ignore", category=FutureWarning)
-                warnings.simplefilter("ignore", category=UserWarning)
-                with contextlib.redirect_stderr(io.StringIO()):
-                    df = yf.download(
-                        download_list,
-                        period=period,
-                        interval="1d",
-                        progress=False,
-                        group_by="column",
-                        auto_adjust=True,
-                    )
-                    if df is None or df.empty:
-                        data = {"error": "No market data returned", "beta": None, "alpha_annual": None, "r_squared": None, "sharpe": None, "vol_annual": None, "points": 0}
-                        _CAPM_CACHE[key] = {"ts": ts, "data": data}
-                        return data
-
-            # Handle possible MultiIndex: prefer "Close"
-            if isinstance(df.columns, pd.MultiIndex):
-                if ("Close" in df.columns.levels[0]):
-                    close = df["Close"].copy()
-                elif ("Adj Close" in df.columns.levels[0]):
-                    close = df["Adj Close"].copy()
-                else:
-                    data = {"error": "Close price not available", "beta": None, "alpha_annual": None, "r_squared": None, "sharpe": None, "vol_annual": None, "points": 0}
-                    _CAPM_CACHE[key] = {"ts": ts, "data": data}
-                    return data
-            else:
-                close = df["Close"] if "Close" in df else df.get("Adj Close")
-                if close is None:
-                    data = {"error": "Close price not available", "beta": None, "alpha_annual": None, "r_squared": None, "sharpe": None, "vol_annual": None, "points": 0}
-                    _CAPM_CACHE[key] = {"ts": ts, "data": data}
-                    return data
-
-            if isinstance(close, pd.Series):
-                if len(download_list) != 1:
-                    return {"error": "Ticker-labelled close prices required", "beta": None, "alpha_annual": None, "r_squared": None, "sharpe": None, "vol_annual": None, "points": 0}
-                close = close.to_frame(download_list[0])
+            holdings_map = {ticker: quantity for ticker, quantity in fp}
+            port_ret, mkt_ret, meta = self._get_portfolio_and_benchmark_returns(
+                holdings_map,
+                str(benchmark_ticker).upper(),
+                period,
+                "1d",
+            )
+            if port_ret is None or mkt_ret is None:
+                data = {"error": meta or "No market data returned", "beta": None, "alpha_annual": None, "r_squared": None, "sharpe": None, "vol_annual": None, "points": 0}
+                _CAPM_CACHE[key] = {"ts": ts, "data": data}
+                return data
             bench = str(benchmark_ticker).upper()
-            if bench not in close.columns:
-                data = {"error": f"Benchmark '{bench}' missing", "beta": None, "alpha_annual": None, "r_squared": None, "sharpe": None, "vol_annual": None, "points": 0}
-                _CAPM_CACHE[key] = {"ts": ts, "data": data}
-                return data
-
-            missing = [ticker for ticker, quantity in fp if quantity and ticker not in close.columns]
-            if missing:
-                return {"error": "Holdings missing price history: " + ", ".join(missing), "beta": None, "alpha_annual": None, "r_squared": None, "sharpe": None, "vol_annual": None, "points": 0}
-            # Portfolio value series: sum(close[t] * qty)
-            port_val = None
-            for t, q in fp:
-                if q == 0.0:
-                    continue
-                if t not in close.columns:
-                    continue
-                series = close[t] * float(q)
-                port_val = series if port_val is None else (port_val + series)
-
-            if port_val is None:
-                data = {"error": "No overlapping price series for holdings", "beta": None, "alpha_annual": None, "r_squared": None, "sharpe": None, "vol_annual": None, "points": 0}
-                _CAPM_CACHE[key] = {"ts": ts, "data": data}
-                return data
-
-            port_ret = port_val.pct_change(fill_method=None).dropna()
-            mkt_ret = close[bench].pct_change(fill_method=None).dropna()
 
             capm = calculations.compute_capm_metrics_from_returns(
                 port_ret,

@@ -1,13 +1,11 @@
 from __future__ import annotations
 
-import concurrent.futures
 import time
-from datetime import datetime, timedelta
+from datetime import datetime
 from typing import Any, Dict, List, Optional, Tuple
 
 from modules.market_data.finnhub_client import FinnhubWrapper
 from modules.market_data.yfinance_client import YahooWrapper
-import yfinance as yf
 from modules.client_mgr.holdings import normalize_ticker, parse_timestamp, select_nearest_price
 
 class ValuationEngine:
@@ -142,52 +140,24 @@ class ValuationEngine:
         }
 
     def get_historical_price(self, ticker: str, timestamp: datetime) -> Optional[float]:
-        """Return the closest historical close price near the timestamp."""
+        """Return the closest historical close price near the timestamp from the snapshot cache."""
         t = self._normalize_ticker(ticker)
         if not t or not isinstance(timestamp, datetime):
             return None
+        from modules.market_data.quotes import fetch_close_frame
 
-        day_start = datetime(timestamp.year, timestamp.month, timestamp.day)
-        day_end = day_start + timedelta(days=1)
-        interval = "1m" if timestamp.time() != datetime.min.time() else "1d"
-
-        def _fetch(interval_value: str) -> Optional[float]:
-            try:
-                hist = yf.download(
-                    t,
-                    start=day_start,
-                    end=day_end,
-                    interval=interval_value,
-                    progress=False,
-                    auto_adjust=True,
-                )
-            except Exception:
-                return None
-
-            if hist is None or hist.empty or "Close" not in hist.columns:
-                return None
-
-            closes = hist["Close"].dropna()
-            if closes.empty:
-                return None
-
-            if interval_value == "1d":
-                return float(closes.iloc[-1])
-
-            idx = closes.index
-            if hasattr(idx, "tz"):
-                idx = idx.tz_localize(None)
-                closes = closes.copy()
-                closes.index = idx
-
-            series = list(zip(list(idx), list(closes)))
-            return select_nearest_price(series, timestamp)
-
-        price = _fetch(interval)
-        if price is None and interval != "1d":
-            price = _fetch("1d")
-
-        return price
+        close, _ = fetch_close_frame([t], "5y", "1d")
+        if t not in close.columns:
+            return None
+        series = close[t].dropna()
+        if series.empty:
+            return None
+        idx = series.index
+        if getattr(idx, "tz", None) is not None:
+            series = series.copy()
+            series.index = idx.tz_localize(None)
+        pairs = list(zip(list(series.index), [float(value) for value in series.tolist()]))
+        return select_nearest_price(pairs, timestamp)
 
     def get_detailed_data(self, ticker: str, period: str = "1mo", interval: str = "1d") -> Dict[str, Any]:
         """\
@@ -253,53 +223,55 @@ class ValuationEngine:
 
         tickers = [self._normalize_ticker(t) for t in list(holdings.keys()) if str(t).strip()]
         unique_tickers = sorted(set(tickers))
+        from modules.market_data.quotes import fetch_close_frame
 
-        with concurrent.futures.ThreadPoolExecutor(max_workers=10) as executor:
-            future_to_ticker = {
-                executor.submit(self.get_detailed_data, t, history_period, history_interval): t
-                for t in unique_tickers
+        close, snapshot = fetch_close_frame(unique_tickers, history_period, history_interval)
+        qty_by_ticker: Dict[str, float] = {}
+        for raw, value in holdings.items():
+            key = self._normalize_ticker(raw)
+            try:
+                qty_by_ticker[key] = qty_by_ticker.get(key, 0.0) + float(value or 0.0)
+            except (TypeError, ValueError):
+                continue
+
+        for t in unique_tickers:
+            qty = float(qty_by_ticker.get(t, 0.0) or 0.0)
+            history: List[float] = []
+            history_dates: List[str] = []
+            price = 0.0
+            change = 0.0
+            pct = 0.0
+            if t in close.columns:
+                series = close[t].dropna()
+                if not series.empty:
+                    history = [float(value) for value in series.tolist()]
+                    history_dates = [
+                        (idx.to_pydatetime().replace(tzinfo=None) if hasattr(idx, "to_pydatetime") else idx).strftime("%Y-%m-%d %H:%M:%S")
+                        if hasattr(idx, "to_pydatetime") or hasattr(idx, "strftime")
+                        else str(idx)
+                        for idx in series.index
+                    ]
+                    price = float(series.iloc[-1])
+                    start = float(series.iloc[0])
+                    change = price - start
+                    pct = (change / start) * 100 if start != 0 else 0.0
+            mkt_val = price * qty
+            total_value += mkt_val
+            enriched_holdings[t] = {
+                "ticker": t,
+                "name": t,
+                "sector": "unspecified",
+                "quantity": qty,
+                "price": price,
+                "market_value": mkt_val,
+                "change": change,
+                "pct": pct,
+                "change_pct": pct,
+                "history": history,
+                "history_dates": history_dates,
+                "mkt_cap": None,
+                "snapshot": snapshot,
             }
-
-            for future in concurrent.futures.as_completed(future_to_ticker):
-                t = future_to_ticker[future]
-                data: Dict[str, Any] = {}
-                try:
-                    data = future.result()
-                except Exception as ex:
-                    self._log("warning", f"Detailed quote failed for {t}: {ex}")
-                    data = {"price": 0.0, "change": 0.0, "pct": 0.0, "history": [], "sector": "N/A", "name": t}
-
-                qty = 0.0
-                try:
-                    if t in holdings:
-                        qty = float(holdings.get(t, 0.0) or 0.0)
-                    else:
-                        for k, v in holdings.items():
-                            if self._normalize_ticker(k) == t:
-                                qty = float(v or 0.0)
-                                break
-                except Exception:
-                    qty = 0.0
-
-                price = float(data.get("price", 0.0) or 0.0)
-                mkt_val = price * qty
-                total_value += mkt_val
-
-                pct = float(data.get("pct", 0.0) or 0.0)
-                enriched_holdings[t] = {
-                    "ticker": t,
-                    "name": data.get("name", t),
-                    "sector": data.get("sector", "N/A"),
-                    "quantity": qty,
-                    "price": price,
-                    "market_value": mkt_val,
-                    "change": float(data.get("change", 0.0) or 0.0),
-                    "pct": pct,
-                    "change_pct": pct,  # manager reads change_pct in a few places
-                    "history": data.get("history", []) or [],
-                    "history_dates": data.get("history_dates", []) or [],
-                    "mkt_cap": data.get("mkt_cap", None),
-                }
 
         return total_value, enriched_holdings
 

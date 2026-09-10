@@ -6,6 +6,7 @@ import Advisory from "./pages/Advisory";
 const Clients = lazy(() => import("./pages/Clients"));
 const Valuation = lazy(() => import("./pages/Valuation"));
 const Comparables = lazy(() => import("./pages/Comparables"));
+const Models = lazy(() => import("./pages/Models"));
 const Osint = lazy(() => import("./pages/Osint"));
 const Reports = lazy(() => import("./pages/Reports"));
 const System = lazy(() => import("./pages/System"));
@@ -27,6 +28,7 @@ export default function App() {
           <Route path="/" element={<Advisory />} />
           <Route path="/valuation" element={<Valuation />} />
           <Route path="/comparables" element={<Comparables />} />
+          <Route path="/models" element={<Models />} />
           <Route path="/clients" element={<Clients />} />
           <Route path="/osint" element={<Osint />} />
           <Route path="/trackers" element={<Navigate to="/osint?tab=trackers" replace />} />

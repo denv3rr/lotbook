@@ -6,7 +6,6 @@ from typing import Optional
 
 import numpy as np
 import pandas as pd
-import yfinance as yf
 
 from modules.client_mgr import calculations
 
@@ -284,15 +283,17 @@ class RegimeModels:
         if not symbol:
             return {"error": "Missing ticker"}
 
-        try:
-            df = yf.download(symbol, period=period, interval=interval, progress=False, auto_adjust=True)
-        except Exception as exc:
-            return {"error": f"Failed to fetch data: {exc}"}
+        from modules.market_data.quotes import fetch_close_frame
 
-        if df is None or df.empty or "Close" not in df.columns:
-            return {"error": "No historical data available"}
-
-        returns = df["Close"].pct_change().dropna()
+        requested = [symbol]
+        bench_symbol = str(benchmark_ticker or "").strip().upper()
+        if bench_symbol and bench_symbol != symbol:
+            requested.append(bench_symbol)
+        close, snapshot = fetch_close_frame(requested, period, interval)
+        if symbol not in close.columns:
+            return {"error": snapshot.get("error") or "No historical data available"}
+        series = close[symbol].dropna()
+        returns = series.pct_change().dropna()
         if returns.empty or len(returns) < 8:
             return {"error": "Insufficient data for regime analysis"}
 
@@ -301,25 +302,14 @@ class RegimeModels:
             horizon=1,
             label=f"{symbol} ({period})",
             interval=interval,
-            timestamps=list(df.index),
+            timestamps=list(series.index),
         )
         if "error" in snap:
             return snap
 
         bench_returns = pd.Series(dtype=float)
-        if benchmark_ticker:
-            try:
-                bench = yf.download(
-                    str(benchmark_ticker).upper(),
-                    period=period,
-                    interval=interval,
-                    progress=False,
-                    auto_adjust=True,
-                )
-                if bench is not None and not bench.empty and "Close" in bench.columns:
-                    bench_returns = bench["Close"].pct_change().dropna()
-            except Exception:
-                bench_returns = pd.Series(dtype=float)
+        if bench_symbol and bench_symbol in close.columns:
+            bench_returns = close[bench_symbol].dropna().pct_change().dropna()
 
         metrics = calculations.compute_core_metrics(returns, bench_returns, risk_free_annual)
 

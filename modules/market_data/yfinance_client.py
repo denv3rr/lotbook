@@ -346,20 +346,13 @@ class YahooWrapper:
                 return data
 
         try:
-            # We use Ticker.history() for single symbols as it's cleaner than download()
-            buf = io.StringIO()
-            with warnings.catch_warnings():
-                warnings.simplefilter("ignore", category=FutureWarning)
-                warnings.simplefilter("ignore", category=UserWarning)
-                with contextlib.redirect_stderr(buf):
-                    stock = yf.Ticker(sym)
-                    hist = stock.history(period=period, interval=interval, auto_adjust=True)
+            from modules.market_data.quotes import fetch_close_frame
 
-            if hist is None or hist.empty or ("Close" not in hist.columns):
+            close, snapshot = fetch_close_frame([sym], period, interval)
+            if sym not in close.columns:
                 YahooWrapper._mark_bad(sym)
-                return {"error": f"No history returned for {sym}"}
-
-            closes = hist["Close"].dropna()
+                return {"error": snapshot.get("error") or f"No history returned for {sym}"}
+            closes = close[sym].dropna()
             if closes.empty:
                 YahooWrapper._mark_bad(sym)
                 return {"error": f"No close series returned for {sym}"}
@@ -368,22 +361,12 @@ class YahooWrapper:
             start = float(closes.iloc[0])
             change = current - start
             pct = (change / start) * 100 if start != 0 else 0.0
-
-            high = float(hist["High"].max()) if "High" in hist.columns and not hist["High"].dropna().empty else current
-            low = float(hist["Low"].min()) if "Low" in hist.columns and not hist["Low"].dropna().empty else current
-            volume = float(hist["Volume"].sum()) if "Volume" in hist.columns and not hist["Volume"].dropna().empty else 0.0
-
+            high = float(closes.max())
+            low = float(closes.min())
+            volume = 0.0
             name = sym
-            sector = "N/A"
+            sector = "unspecified"
             mkt_cap = None
-            try:
-                # Ticker info fetching can be slow, wrap heavily
-                info = getattr(stock, "info", {}) or {}
-                name = info.get("shortName") or info.get("longName") or sym
-                sector = info.get("sector") or "N/A"
-                mkt_cap = info.get("marketCap")
-            except Exception:
-                pass
 
             data = {
                 "ticker": sym,
