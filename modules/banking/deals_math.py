@@ -51,7 +51,7 @@ def calculate_merger(inputs: MergerInputs) -> dict[str, Any]:
     )
     pro_forma_shares = inputs.acquirer_shares + inputs.new_shares
     pro_forma_eps = pro_forma_income / pro_forma_shares
-    accretion = None if standalone_eps == 0 else pro_forma_eps / standalone_eps - Decimal(1)
+    accretion = None if standalone_eps <= 0 else pro_forma_eps / standalone_eps - Decimal(1)
     warnings = []
     if standalone_eps <= 0:
         warnings.append("Standalone EPS is not positive; accretion percentage is unavailable.")

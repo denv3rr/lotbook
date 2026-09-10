@@ -103,6 +103,25 @@ def test_fifo_sell_realizes_basis():
     assert event["realized_pnl"] == "50.00000000"
 
 
+def test_sell_fee_is_deducted_from_realized_pnl():
+    lots = {"AAPL": [{"qty": 3.0, "basis": 10.0, "timestamp": "2024-01-01T00:00:00"}]}
+    extra = {"cash_balances": {"USD": "0"}}
+    command = LedgerWrite(
+        expected_revision=REVISION,
+        occurred_at="2024-03-01T00:00:00",
+        kind="sell",
+        ticker="AAPL",
+        quantity="3",
+        unit_price="30",
+        fee_amount="5",
+        currency="USD",
+        source_note="Isolated sell with fee.",
+    )
+    _, _, _, event = apply_ledger({"AAPL": 3.0}, lots, extra, command)
+    assert event["realized_pnl"] == "55.00000000"
+    assert event["cash_amount"] == "85.00000000"
+
+
 def test_import_preview_does_not_need_write_and_stops_on_error():
     rows = [
         ImportRow(occurred_at="2024-01-01T00:00:00", kind="deposit", cash_amount="100", currency="USD", source_note="Seed cash."),

@@ -490,7 +490,7 @@ def apply_ledger(holdings, lots, extra, command: LedgerWrite):
             if not entries:
                 raise ValueError("A sell requires lot history so realized P&L can be allocated.")
             kept, allocated_basis = _reduce_lots(entries, command.quantity, command.lot_indices or None)
-            realized = cash_delta + fee - allocated_basis
+            realized = cash_delta - allocated_basis
             if kept:
                 lots[ticker] = kept
                 holdings[ticker] = json_amount(lot_quantity(kept))

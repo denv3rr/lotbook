@@ -98,8 +98,8 @@ def cash_flow_performance(events: list[dict[str, Any]], cash: list[dict[str, Any
     if len({code for code in currencies if code}) > 1:
         warnings.append("Mixed currencies are present. No FX conversion is applied; returns remain unavailable.")
         return {
-            "realized_pnl": money_text(realized),
-            "fees": money_text(fees),
+            "realized_pnl": None,
+            "fees": None,
             "twr": None,
             "xirr": None,
             "unrealized_pnl": None,

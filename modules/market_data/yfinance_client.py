@@ -361,9 +361,6 @@ class YahooWrapper:
             start = float(closes.iloc[0])
             change = current - start
             pct = (change / start) * 100 if start != 0 else 0.0
-            high = float(closes.max())
-            low = float(closes.min())
-            volume = 0.0
             name = sym
             sector = "unspecified"
             mkt_cap = None
@@ -376,9 +373,9 @@ class YahooWrapper:
                 "price": float(current),
                 "change": float(change),
                 "pct": float(pct),
-                "high": float(high),
-                "low": float(low),
-                "volume": int(volume),
+                "high": None,
+                "low": None,
+                "volume": None,
                 "history": closes.tolist(),
                 "history_dates": [
                     (idx.to_pydatetime().replace(tzinfo=None) if hasattr(idx, "to_pydatetime") else idx).strftime("%Y-%m-%d %H:%M:%S")

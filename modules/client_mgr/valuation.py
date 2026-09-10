@@ -6,7 +6,7 @@ from typing import Any, Dict, List, Optional, Tuple
 
 from modules.market_data.finnhub_client import FinnhubWrapper
 from modules.market_data.yfinance_client import YahooWrapper
-from modules.client_mgr.holdings import normalize_ticker, parse_timestamp, select_nearest_price
+from modules.client_mgr.holdings import normalize_ticker, parse_timestamp
 
 class ValuationEngine:
     """\
@@ -146,7 +146,7 @@ class ValuationEngine:
             return None
         from modules.market_data.quotes import fetch_close_frame
 
-        close, _ = fetch_close_frame([t], "5y", "1d")
+        close, _ = fetch_close_frame([t], "max", "1d")
         if t not in close.columns:
             return None
         series = close[t].dropna()
@@ -156,8 +156,21 @@ class ValuationEngine:
         if getattr(idx, "tz", None) is not None:
             series = series.copy()
             series.index = idx.tz_localize(None)
-        pairs = list(zip(list(series.index), [float(value) for value in series.tolist()]))
-        return select_nearest_price(pairs, timestamp)
+        pairs = []
+        for stamp, value in zip(list(series.index), series.tolist()):
+            if hasattr(stamp, "to_pydatetime"):
+                stamp = stamp.to_pydatetime()
+            if getattr(stamp, "tzinfo", None) is not None:
+                stamp = stamp.replace(tzinfo=None)
+            if not isinstance(stamp, datetime):
+                continue
+            pairs.append((stamp, float(value)))
+        if not pairs:
+            return None
+        nearest = min(pairs, key=lambda item: abs((item[0] - timestamp.replace(tzinfo=None)).total_seconds()))
+        if abs((nearest[0] - timestamp.replace(tzinfo=None)).total_seconds()) > 7 * 24 * 60 * 60:
+            return None
+        return nearest[1]
 
     def get_detailed_data(self, ticker: str, period: str = "1mo", interval: str = "1d") -> Dict[str, Any]:
         """\

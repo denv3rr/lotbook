@@ -28,6 +28,11 @@ from web_api.view_model import attach_meta
 router = APIRouter(dependencies=[Depends(require_api_key)], tags=["Positions"])
 
 
+def validation_error(failure: Exception) -> HTTPException:
+    message = str(failure) if isinstance(failure, ValueError) else "Request could not be applied."
+    return HTTPException(422, message)
+
+
 def client_accounts(db, client_id):
     store = DbClientStore(db)
     client = store.fetch_client(client_id)
@@ -41,7 +46,7 @@ def original_book(account):
     return account.holdings_map, account.lots, account.extra
 
 
-def persist_book(db, owner, account, original, holdings, lots, extra, ticker, action, source_note, event=None, import_batch_id=None):
+def persist_book(db, owner, account, original, holdings, lots, extra, ticker, action, source_note, event=None, events=None, import_batch_id=None):
     revision = positions_revision(*original)
     next_revision = positions_revision(holdings, lots, extra)
     result = db.execute(
@@ -72,23 +77,27 @@ def persist_book(db, owner, account, original, holdings, lots, extra, ticker, ac
             revision=next_revision,
             change={"before": before, "after": after, "source_note": source_note},
         ))
+    ledger_rows = []
     if event is not None:
+        ledger_rows.append(event)
+    ledger_rows.extend(events or [])
+    for item in ledger_rows:
         db.add(AccountLedger(
             account_id=account.id,
             created_at=stamp,
-            occurred_at=event["occurred_at"],
-            kind=event["kind"],
-            ticker=event.get("ticker"),
-            quantity=event.get("quantity"),
-            unit_price=event.get("unit_price"),
-            cash_amount=event["cash_amount"],
-            currency=event["currency"],
-            fee_amount=event.get("fee_amount") or "0",
-            source_note=event["source_note"],
+            occurred_at=item["occurred_at"],
+            kind=item["kind"],
+            ticker=item.get("ticker"),
+            quantity=item.get("quantity"),
+            unit_price=item.get("unit_price"),
+            cash_amount=item["cash_amount"],
+            currency=item["currency"],
+            fee_amount=item.get("fee_amount") or "0",
+            source_note=item["source_note"],
             import_batch_id=import_batch_id,
             previous_revision=revision,
             revision=next_revision,
-            change=event,
+            change=item,
         ))
     db.commit()
     db.refresh(account)
@@ -152,8 +161,8 @@ def read_positions(client_id: str, db: Session = Depends(get_db)):
             source="canonical-database",
             warnings=["Recorded positions, not live quotes. Basis is per unit; no FX conversion or execution is performed."],
         )
-    except (ValueError, KeyError, TypeError) as failure:
-        raise HTTPException(409, "Stored holdings need reconciliation before this view can be edited.") from failure
+    except (ValueError, KeyError, TypeError):
+        raise HTTPException(409, "Stored holdings need reconciliation before this view can be edited.") from None
 
 
 @router.put("/api/clients/{client_id}/accounts/{account_id}/positions")
@@ -169,7 +178,7 @@ def write_position(client_id: str, account_id: str, payload: PositionWrite, db: 
         raise
     except (ValueError, KeyError, TypeError) as failure:
         db.rollback()
-        raise HTTPException(422, str(failure)) from failure
+        raise validation_error(failure) from None
 
 
 @router.put("/api/clients/{client_id}/accounts/{account_id}/cash")
@@ -197,7 +206,7 @@ def write_cash(client_id: str, account_id: str, payload: CashWrite, db: Session 
         raise
     except (ValueError, KeyError, TypeError) as failure:
         db.rollback()
-        raise HTTPException(422, str(failure)) from failure
+        raise validation_error(failure) from None
 
 
 @router.post("/api/clients/{client_id}/accounts/{account_id}/transactions")
@@ -213,7 +222,7 @@ def write_transaction(client_id: str, account_id: str, payload: LedgerWrite, db:
         raise
     except (ValueError, KeyError, TypeError) as failure:
         db.rollback()
-        raise HTTPException(422, str(failure)) from failure
+        raise validation_error(failure) from None
 
 
 @router.post("/api/clients/{client_id}/accounts/{account_id}/transactions/import")
@@ -233,32 +242,25 @@ def import_transactions(client_id: str, account_id: str, payload: ImportPreview,
             raise HTTPException(422, preview["errors"][0]["message"])
         batch = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S")
         holdings, lots, extra = preview["holdings"], preview["lots"], preview["extra"]
-        view = persist_book(db, owner, account, original, holdings, lots, extra, None, "import", "Import batch", import_batch_id=batch)
-        for event in preview["events"]:
-            db.add(AccountLedger(
-                account_id=account.id,
-                created_at=datetime.now(timezone.utc).isoformat(),
-                occurred_at=event["occurred_at"],
-                kind=event["kind"],
-                ticker=event.get("ticker"),
-                quantity=event.get("quantity"),
-                unit_price=event.get("unit_price"),
-                cash_amount=event["cash_amount"],
-                currency=event["currency"],
-                fee_amount=event.get("fee_amount") or "0",
-                source_note=event["source_note"],
-                import_batch_id=batch,
-                previous_revision=payload.expected_revision,
-                revision=view["revision"],
-                change=event,
-            ))
-        db.commit()
-        return account_view(db, account)
+        return persist_book(
+            db,
+            owner,
+            account,
+            original,
+            holdings,
+            lots,
+            extra,
+            None,
+            "import",
+            "Import batch",
+            events=preview["events"],
+            import_batch_id=batch,
+        )
     except HTTPException:
         raise
     except (ValueError, KeyError, TypeError) as failure:
         db.rollback()
-        raise HTTPException(422, str(failure)) from failure
+        raise validation_error(failure) from None
 
 
 @router.get("/api/clients/{client_id}/accounts/{account_id}/performance")
