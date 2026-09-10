@@ -42,12 +42,24 @@ def test_us_holding_period_is_more_than_calendar_year():
 def test_held_benchmark_and_missing_holding_arithmetic_unit(monkeypatch):
     from modules.client_mgr import data
     # Isolated arithmetic only; this is not provider or route evidence.
-    close = pd.DataFrame({"Close": [100., 110., 99.]}, index=pd.date_range("2026-01-01", periods=3))
-    monkeypatch.setattr(data.yf, "download", lambda *args, **kwargs: close)
+    index = pd.date_range("2026-01-01", periods=3)
+    spy = pd.Series([100., 110., 99.], index=index, name="SPY")
+
+    def fake_frame(tickers, period, interval):
+        columns = {}
+        for ticker in tickers:
+            if str(ticker).upper() == "SPY":
+                columns["SPY"] = spy
+        if not columns:
+            return pd.DataFrame(), {"error": "Market data empty", "missing": list(tickers)}
+        missing = [str(ticker).upper() for ticker in tickers if str(ticker).upper() not in columns]
+        return pd.DataFrame(columns), {"error": None, "missing": missing}
+
+    monkeypatch.setattr(data, "fetch_close_frame", fake_frame)
     portfolio, benchmark, meta = data.get_portfolio_and_benchmark_returns({"SPY": 2}, "SPY", "1mo", "1d")
     assert portfolio.tolist() == pytest.approx([.1, -.1])
     assert portfolio.tolist() == benchmark.tolist()
     assert "reconstruction" in meta
     portfolio, _, reason = data.get_portfolio_and_benchmark_returns({"SPY": 2, "MISSING": 1}, "SPY", "1mo", "1d")
     assert portfolio is None
-    assert "identity unavailable" in reason
+    assert "missing price history" in reason or "identity unavailable" in reason

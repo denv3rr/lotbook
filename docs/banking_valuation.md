@@ -50,5 +50,10 @@ and [The Anatomy of a Multiple](https://people.stern.nyu.edu/adamodar/New_Home_P
 arithmetic, missing inputs, domain boundaries and finite output checks.
 `test_banking_api.py` uses isolated actual SQLite writes and protects immutable
 versions and same-client links. These are not verified market-data examples.
-Financial statement intake, reviewed peer data, precedent transactions,
-merger/LBO models and approval workflows remain explicit follow-on releases.
+WACC, capital structure, debt schedules, three-statement linkage, precedent
+screens, merger accretion/dilution, LBO MOIC/IRR and bond/option boundary
+calculators are now assumption-driven screening endpoints. They do not close
+reviewed financial intake or independent model approval. GIPS TWR linking and
+Damodaran cost-of-capital notes are methodological references, not compliance
+claims. TWR/XIRR stay unavailable on the performance route until an ending
+market value is independently recorded.

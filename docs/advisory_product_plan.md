@@ -37,6 +37,14 @@ workflow to advisory work; it does not close the older standards backlog.
 
 ## Subsequent release work
 
+Holdings book: per-ticker lot edits, cash, ledger events, import preview and
+revision compare-and-swap now land on `/api/clients/{id}/positions`. Unrelated
+tickers are preserved. TWR/XIRR remain unavailable without an independently
+recorded ending market value. Dashboard market data uses a shared 60-second
+close-price snapshot cache with in-flight coalescing; results are labeled
+snapshots, not live streams. Deployment boundary for this phase is
+single-operator desktop.
+
 Loading follow-through: client detail no longer reloads on account changes;
 obsolete profile/dashboard/pattern requests are cancelled and ignored. Pattern
 analysis and its 3D surfaces load only when expanded. Snapshot refresh is

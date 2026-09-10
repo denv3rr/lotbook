@@ -58,17 +58,24 @@ are removed. The same scene contracts, source inspector, Browse list, layer
 filters and approximate regional signals remain. This is geographic context,
 not an implementation of the reference project's simulations or 3D buildings.
 
-The basemap is NASA GIBS `BlueMarble_ShadedRelief_Bathymetry`, a non-temporal
-historical composite, **not live satellite imagery**. The actual
+The wide-zoom basemap is NASA GIBS `BlueMarble_ShadedRelief_Bathymetry`, a
+non-temporal historical composite, **not live satellite imagery**. The actual
 [WMTS capabilities](https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/1.0.0/WMTSCapabilities.xml)
 were checked: EPSG:3857, JPEG, 256-pixel tiles, GoogleMapsCompatible_Level8,
-native maximum zoom 8, latitude coverage +/-85.051129 degrees. Higher camera
-zoom only enlarges existing imagery; it does not provide street-level detail.
+native maximum zoom 8, latitude coverage +/-85.051129 degrees.
+
+Closer zoom (from about county scale to street scale, MapLibre zoom 8–19) uses
+the same keyless Esri World Imagery MapServer that God's Eye View uses without
+API keys, with OpenStreetMap raster tiles if Esri is unreachable. That mosaic
+is recent satellite/aerial context, still **not a live stream**. No Esri, OSM
+or Google key is stored. Viewport tile coordinates and the browser IP reach
+those hosts. This does not license Esri imagery for a hosted multiuser service.
 No terrain elevations, precise incident polygons or new hazard feeds were added.
 
-NASA requests are direct from the browser, keyless, without Clear client IDs,
-notes or API keys. Viewport tile coordinates and the browser's IP reach NASA.
-Only the NASA GIBS host was added to CSP. No bulk tile download or offline tile
+NASA, Esri and OSM requests are direct from the browser, keyless, without
+Clear client IDs, notes or API keys. Viewport tile coordinates and the
+browser's IP reach those hosts. NASA GIBS, Esri ArcGIS Online and OSM tile
+hosts are in CSP. No bulk tile download or offline tile
 cache is implemented. Availability is external; failures show incomplete
 imagery and retain local reviewed Natural Earth land/borders and the Browse list.
 WebGL 2 is required for World; unsupported devices retain non-canvas browsing.

@@ -22,7 +22,27 @@ authorization. Do not expose this release as a hosted multiuser service.
 | GET `/api/banking/deals/{id}/activity` | Recorded before/after changes |
 | POST `/api/banking/valuation/dcf` | Validated annual FCFF calculation, bridge, sensitivity and methodology |
 | POST `/api/banking/valuation/comps` | Validated EV/revenue and EV/EBITDA peer multiples, coverage and implied value statistics |
+| POST `/api/banking/valuation/wacc` | Operator-supplied weights and rates; after-tax cost of debt and WACC |
+| POST `/api/banking/valuation/capital-structure` | Net debt and optional enterprise value from supplied cash, debt and equity |
+| POST `/api/banking/valuation/debt-schedule` | Linked beginning/ending balances, interest, paydowns and cash sweeps |
+| POST `/api/banking/valuation/statements` | Linked income, cash flow and balance sheet; unbalanced sheets fail closed |
+| POST `/api/banking/valuation/merger` | Pro forma EPS and accretion/dilution from supplied NI, shares and synergies |
+| POST `/api/banking/valuation/lbo` | MOIC and XIRR from sponsor equity and exit equity |
+| POST `/api/banking/valuation/precedent` | Transaction multiples with coverage; no invented premiums |
+| POST `/api/banking/valuation/bond` | Price, Macaulay/modified duration and convexity for whole coupon periods |
+| POST `/api/banking/valuation/option` | European BSM plus zero-tenor and zero-vol boundaries |
+| POST `/api/banking/intake` | Statement/peer/precedent intake with source document, period, currency, units, restatement and review status |
+| POST `/api/banking/parties` | Deal party; NDA status never grants document access |
+| POST `/api/banking/bids` | Party bid on the same deal and client |
+| POST `/api/banking/documents` | Version metadata only; no file blob in this release |
+| POST `/api/banking/approvals` | Pending/approved/rejected decision record |
 | POST `/api/banking/valuations` | Immutable snapshot: name, client, owner, source, model_kind, original inputs; optional deal and same-client/type supersedes_id |
+| GET `/api/clients/{id}/positions` | Recorded lots and cash; no market fetch |
+| PUT `/api/clients/{id}/accounts/{id}/positions` | Single-ticker lot/quantity/delete with revision compare-and-swap |
+| PUT `/api/clients/{id}/accounts/{id}/cash` | Recorded cash correction |
+| POST `/api/clients/{id}/accounts/{id}/transactions` | Buy/sell/deposit/withdrawal/fee/transfer/dividend/split |
+| POST `/api/clients/{id}/accounts/{id}/transactions/import` | Preview unless `confirm=true` |
+| GET `/api/clients/{id}/accounts/{id}/performance` | Realized P&L and fees from the ledger; TWR/XIRR unavailable without an ending market value |
 | GET `/api/banking/export` | Current workspace plus full activity records; includes sensitive client information |
 
 Snapshot results are recalculated by the server. Callers cannot provide or

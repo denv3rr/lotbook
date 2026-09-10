@@ -58,6 +58,7 @@ def ensure_client_schema() -> None:
         "lots": ("TEXT", "'{}'"),
         "manual_holdings": ("TEXT", "'[]'"),
         "extra": ("TEXT", "'{}'"),
+        "book_revision": ("TEXT", "''"),
     }
     for column, (col_type, default) in account_updates.items():
         if column not in accounts_cols:

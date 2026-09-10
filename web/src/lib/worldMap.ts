@@ -4,6 +4,10 @@ export type MapObservation = { id: string; geometry: Geometry; color: string; ki
 export type ResearchArea = { id: string; name: string; bounds: [number, number, number, number]; createdAt: string; basis: "operator-viewport" };
 export const AREA_STORAGE_KEY = "clear_world_research_areas_v1";
 export const BLUE_MARBLE_TILES = "https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/BlueMarble_ShadedRelief_Bathymetry/default/GoogleMapsCompatible_Level8/{z}/{y}/{x}.jpeg";
+export const ESRI_WORLD_IMAGERY_TILES = "https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}";
+export const OSM_RASTER_TILES = "https://tile.openstreetmap.org/{z}/{x}/{y}.png";
+export const MAX_MAP_ZOOM = 19;
+export const DETAIL_MIN_ZOOM = 8;
 
 export type SceneCameraDefaults = { target_lat?: number; target_lon?: number; distance?: number; pitch?: number; bearing?: number };
 export type SceneBounds = { min_lon?: number; min_lat?: number; max_lon?: number; max_lat?: number };
@@ -13,7 +17,7 @@ export function sceneCameraTarget(defaults?: SceneCameraDefaults): [number, numb
 }
 export function isImageryError(event: { sourceId?: unknown }): boolean {
   // Source identity is attached by MapLibre; arbitrary error text is not a URL.
-  return event.sourceId === "imagery";
+  return event.sourceId === "imagery" || event.sourceId === "detail";
 }
 
 export function centeredMercatorZoom(center: [number, number], width: number, height: number): number {
@@ -25,7 +29,7 @@ export function centeredMercatorZoom(center: [number, number], width: number, he
   const y = (1 - Math.log(Math.tan(Math.PI / 4 + latitude * Math.PI / 360)) / Math.PI) / 2;
   const scale = Math.max(width / (1024 * Math.max(0, Math.min(x, 1 - x))), height / (1024 * Math.max(0, Math.min(y, 1 - y))));
   // At projection edges an exact center is impossible; retain the map's limit.
-  return Math.max(0, Math.min(12, Math.log2(scale)));
+  return Math.max(0, Math.min(MAX_MAP_ZOOM, Math.log2(scale)));
 }
 
 export function normalizeLongitude(value: number): number {

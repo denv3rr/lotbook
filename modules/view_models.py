@@ -232,6 +232,27 @@ def _aggregate_manual_holdings(accounts: Iterable[Account]) -> List[Dict[str, An
     return manual
 
 
+def _market_snapshot(enriched: Dict[str, Any]) -> Dict[str, Any]:
+    snapshot = next(
+        (
+            entry.get("snapshot")
+            for entry in (enriched or {}).values()
+            if isinstance(entry, dict) and entry.get("snapshot")
+        ),
+        {},
+    )
+    if not isinstance(snapshot, dict):
+        snapshot = {}
+    return {
+        "source": snapshot.get("source", "none"),
+        "label": snapshot.get("label", "Cached snapshot, not a live quote stream."),
+        "fetched_at": snapshot.get("fetched_at"),
+        "cache": snapshot.get("cache"),
+        "ttl_seconds": snapshot.get("ttl_seconds"),
+        "warnings": list(snapshot.get("warnings") or []),
+    }
+
+
 def _history_payload(dates: List[Any], values: List[float]) -> List[Dict[str, Any]]:
     if not values:
         return []
@@ -290,6 +311,8 @@ def portfolio_dashboard(client: Client, interval: str = "1M") -> Dict[str, Any]:
         interval=interval,
         lot_map=lots,
     )
+    snapshot = _market_snapshot(enriched)
+    warnings.extend(item for item in snapshot.get("warnings", []) if item not in warnings)
     client_obj = ClientPayload.from_dict(client) if isinstance(client, dict) else client
     toolkit = FinancialToolkit(client_obj)
     risk_payload = toolkit.build_risk_dashboard_payload(
@@ -304,6 +327,7 @@ def portfolio_dashboard(client: Client, interval: str = "1M") -> Dict[str, Any]:
         interval=interval,
         label=_client_label(client),
         scope="Portfolio",
+        enriched=enriched,
     )
     # The regime payload carries its own fixed-holdings calculation window.
 
@@ -321,9 +345,10 @@ def portfolio_dashboard(client: Client, interval: str = "1M") -> Dict[str, Any]:
         value = float(entry.get("market_value", 0.0) or 0.0)
         sector_totals[sector] = sector_totals.get(sector, 0.0) + value
     sector_rows = sorted(sector_totals.items(), key=lambda item: item[1], reverse=True)
-    hhi = 0.0
-    for _, value in sector_rows:
-        if total_value > 0:
+    hhi = None
+    if total_value > 0:
+        hhi = 0.0
+        for _, value in sector_rows:
             pct = value / total_value
             hhi += pct * pct
 
@@ -350,6 +375,7 @@ def portfolio_dashboard(client: Client, interval: str = "1M") -> Dict[str, Any]:
         "history": _history_payload(history_dates, history_values),
         "risk": risk_payload,
         "regime": regime_payload,
+        "market_snapshot": snapshot,
         "diagnostics": {
             "sectors": [
                 {
@@ -359,7 +385,7 @@ def portfolio_dashboard(client: Client, interval: str = "1M") -> Dict[str, Any]:
                 }
                 for sector, value in sector_rows[:8]
             ],
-            "hhi": float(hhi),
+            "hhi": None if hhi is None else float(hhi),
             "gainers": [
                 {
                     "ticker": row.get("ticker"),
@@ -408,6 +434,8 @@ def account_dashboard(client: Client, account: Account, interval: str = "1M") ->
         interval=interval,
         lot_map=lots,
     )
+    snapshot = _market_snapshot(enriched)
+    warnings.extend(item for item in snapshot.get("warnings", []) if item not in warnings)
     client_obj = ClientPayload.from_dict(client) if isinstance(client, dict) else client
     toolkit = FinancialToolkit(client_obj)
     risk_payload = toolkit.build_risk_dashboard_payload(
@@ -422,6 +450,7 @@ def account_dashboard(client: Client, account: Account, interval: str = "1M") ->
         interval=interval,
         label=_account_label(account),
         scope="Account",
+        enriched=enriched,
     )
     # The regime payload carries its own fixed-holdings calculation window.
 
@@ -439,9 +468,10 @@ def account_dashboard(client: Client, account: Account, interval: str = "1M") ->
         value = float(entry.get("market_value", 0.0) or 0.0)
         sector_totals[sector] = sector_totals.get(sector, 0.0) + value
     sector_rows = sorted(sector_totals.items(), key=lambda item: item[1], reverse=True)
-    hhi = 0.0
-    for _, value in sector_rows:
-        if total_value > 0:
+    hhi = None
+    if total_value > 0:
+        hhi = 0.0
+        for _, value in sector_rows:
             pct = value / total_value
             hhi += pct * pct
 
@@ -469,6 +499,7 @@ def account_dashboard(client: Client, account: Account, interval: str = "1M") ->
         "history": _history_payload(history_dates, history_values),
         "risk": risk_payload,
         "regime": regime_payload,
+        "market_snapshot": snapshot,
         "diagnostics": {
             "sectors": [
                 {
@@ -478,7 +509,7 @@ def account_dashboard(client: Client, account: Account, interval: str = "1M") ->
                 }
                 for sector, value in sector_rows[:8]
             ],
-            "hhi": float(hhi),
+            "hhi": None if hhi is None else float(hhi),
             "gainers": [
                 {
                     "ticker": row.get("ticker"),

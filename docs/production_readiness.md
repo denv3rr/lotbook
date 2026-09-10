@@ -7,11 +7,12 @@ complete transaction-modeling and execution product.
 
 ## Release boundary
 
-The intended first deployment still needs confirmation: one-operator desktop,
-self-hosted team server, or hosted multi-firm service. Current optional shared
-API-key access and operator-entered names are not individual identity or client
-authorization. Do not expose this build to an untrusted network or treat local
-activity history as tamper-proof audit evidence.
+**Confirmed deployment boundary for this phase: single-operator desktop.** Shared
+API-key access and operator-entered names are local application access, not
+individual identity or per-client authorization. Do not expose this build as an
+authenticated team service or hosted multi-firm product. Team identity, scoped
+authorization, protected audit and recovery-tested operations remain later
+gates. Do not treat local activity history as tamper-proof audit evidence.
 
 | Area | Implemented evidence / remaining release gate |
 | --- | --- |

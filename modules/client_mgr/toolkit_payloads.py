@@ -86,14 +86,16 @@ class ToolkitPayloadsMixin:
         interval: str,
         label: str,
         scope: str = "Portfolio",
+        enriched: Optional[Dict[str, Any]] = None,
     ) -> Dict[str, Any]:
         interval = str(interval or self._selected_interval or "1M").upper()
         period = TOOLKIT_PERIOD.get(interval, "1y")
-        _, enriched = self.valuation.calculate_portfolio_value(
-            holdings,
-            history_period=period,
-            history_interval=TOOLKIT_INTERVAL.get(interval, "1d"),
-        )
+        if not enriched:
+            _, enriched = self.valuation.calculate_portfolio_value(
+                holdings,
+                history_period=period,
+                history_interval=TOOLKIT_INTERVAL.get(interval, "1d"),
+            )
         _, history = self.valuation.generate_portfolio_history_series(
             enriched_data=enriched,
             holdings=holdings,

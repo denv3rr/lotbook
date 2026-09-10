@@ -42,7 +42,11 @@ class Account(Base):
     lots = Column(JSON, default=dict)
     manual_holdings = Column(JSON, default=list)
     extra = Column(JSON, default=dict)
+    book_revision = Column(String, default="")
     client_id = Column(Integer, ForeignKey("clients.id", ondelete="CASCADE"))
+
+    position_events = relationship("PositionEvent", cascade="all, delete-orphan", back_populates="account")
+    ledger_events = relationship("AccountLedger", cascade="all, delete-orphan", back_populates="account")
 
     client = relationship("Client", back_populates="accounts")
     holdings = relationship(
@@ -51,6 +55,42 @@ class Account(Base):
         cascade="all, delete-orphan",
         passive_deletes=True,
     )
+
+class PositionEvent(Base):
+    __tablename__ = "position_events"
+
+    id = Column(Integer, primary_key=True)
+    account_id = Column(Integer, ForeignKey("accounts.id", ondelete="CASCADE"), nullable=False, index=True)
+    created_at = Column(String, nullable=False)
+    ticker = Column(String, nullable=False)
+    action = Column(String, nullable=False)
+    previous_revision = Column(String, nullable=False)
+    revision = Column(String, nullable=False)
+    change = Column(JSON, nullable=False)
+    account = relationship("Account", back_populates="position_events")
+
+
+class AccountLedger(Base):
+    __tablename__ = "account_ledger"
+
+    id = Column(Integer, primary_key=True)
+    account_id = Column(Integer, ForeignKey("accounts.id", ondelete="CASCADE"), nullable=False, index=True)
+    created_at = Column(String, nullable=False)
+    occurred_at = Column(String, nullable=False)
+    kind = Column(String, nullable=False)
+    ticker = Column(String, nullable=True)
+    quantity = Column(String, nullable=True)
+    unit_price = Column(String, nullable=True)
+    cash_amount = Column(String, nullable=False)
+    currency = Column(String, nullable=False)
+    fee_amount = Column(String, nullable=False, default="0")
+    source_note = Column(String, nullable=False)
+    import_batch_id = Column(String, nullable=True)
+    previous_revision = Column(String, nullable=False)
+    revision = Column(String, nullable=False)
+    change = Column(JSON, nullable=False)
+    account = relationship("Account", back_populates="ledger_events")
+
 
 class Holding(Base):
     __tablename__ = "holdings"

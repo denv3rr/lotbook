@@ -32,9 +32,13 @@ registry model later.
 bathymetry composite, served directly as EPSG:3857 raster tiles through GIBS.
 It is non-temporal, keyless background context with native maximum zoom 8 and
 approximately +/-85.05-degree latitude coverage, not current ground conditions.
-World shows NASA attribution and incomplete-imagery failures, and retains the
-reviewed local Natural Earth context. Terms, geometry, network and evidence
-details are in [the World implementation record](world_map_reference_plan.md).
+
+`esri-world-imagery` is the keyless ArcGIS Online World Imagery mosaic used
+for closer zoom (native tiles through zoom 19). `osm-raster` is the fallback
+if Esri tiles fail. Neither is a live feed. Attribution is required. World
+shows incomplete-imagery failures and retains reviewed Natural Earth context.
+Terms, geometry, network and evidence details are in
+[the World implementation record](world_map_reference_plan.md).
 This does not advance or reorder the unimplemented hazard-source priorities.
 
 ## Reviewed Priority Sources Not Yet Implemented

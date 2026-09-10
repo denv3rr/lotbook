@@ -114,27 +114,27 @@ def downside_deviation(returns: pd.Series, threshold: float) -> Optional[float]:
     return float(np.sqrt(np.mean(np.square(excess))))
 
 
-def shannon_entropy(returns: pd.Series, bins: int = 12) -> float:
+def shannon_entropy(returns: pd.Series, bins: int = 12) -> Optional[float]:
     values = np.array(returns, dtype=float)
     if len(values) < 5:
-        return 0.0
+        return None
     counts, _ = np.histogram(values, bins=bins, density=False)
     total = float(counts.sum())
     if total <= 0:
-        return 0.0
+        return None
     probs = counts / total
     probs = probs[probs > 0]
     entropy = float(-np.sum(probs * np.log2(probs)))
     return max(0.0, entropy)
 
 
-def permutation_entropy(values: List[float], order: int = 3, delay: int = 1) -> float:
+def permutation_entropy(values: List[float], order: int = 3, delay: int = 1) -> Optional[float]:
     if not values or order < 2 or delay < 1:
-        return 0.0
+        return None
     n = len(values)
     max_start = n - delay * (order - 1)
     if max_start <= 0:
-        return 0.0
+        return None
     patterns = {}
     for start in range(max_start):
         window = [values[start + i * delay] for i in range(order)]
@@ -142,12 +142,12 @@ def permutation_entropy(values: List[float], order: int = 3, delay: int = 1) -> 
         patterns[ranks] = patterns.get(ranks, 0) + 1
     total = float(sum(patterns.values()))
     if total <= 0:
-        return 0.0
+        return None
     probs = np.array([count / total for count in patterns.values()], dtype=float)
     entropy = float(-np.sum(probs * np.log2(probs)))
     max_entropy = math.log2(math.factorial(order))
     if max_entropy <= 0:
-        return 0.0
+        return None
     return max(0.0, min(1.0, entropy / max_entropy))
 
 

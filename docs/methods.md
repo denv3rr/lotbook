@@ -18,6 +18,10 @@ that is an open limitation, not evidence of low uncertainty. See
 - Price return is `P_t / P_(t-1) - 1`, implemented with pandas fractional
   `pct_change`; it is not a percent until multiplied by 100. Current-holdings
   reconstruction is not cash-flow-adjusted historical client performance.
+- GIPS-style TWR geometrically links sub-period returns
+  `r = (EMV - CF) / BMV - 1`. XIRR is Newton-Raphson on dated external cash
+  flows plus ending market value. Both stay unavailable without valued
+  sub-periods. These are formula implementations, not a GIPS verification.
 - Annualization `A` is `seconds_per_year / mean(positive timestamp deltas)`
   when a DatetimeIndex is present, otherwise `252`.
 - Mean annual return is `mean(r) * A`.
@@ -82,6 +86,8 @@ Reference: [1996 RiskMetrics Technical Document](https://www.msci.com/research-a
   slope to [0,1], uses disjoint blocks and population standard deviation;
   it is a descriptive estimator, not proof of predictability.
 - Shannon and permutation entropy are descriptive complexity measures.
+  Insufficient inputs return unavailable (`None`), not zero. A defined zero
+  remains possible for a constant series with enough observations.
 - CUSUM is two-sided, with `k=0.5*s` and `h=threshold*s` (default threshold 5),
   resetting after a signal. Its mean and sample standard deviation use the
   entire input window, so this is retrospective detection, not online trading
