@@ -4,7 +4,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { execFileSync } from "node:child_process";
 import { loadCapturedIntelGlobeFixture } from "./fixtures/globeFixtures";
-import { areaGeometry, coordinateBounds, readAreas } from "../src/lib/worldMap";
+import { AREA_STORAGE_KEY, areaGeometry, centeredMercatorZoom, coordinateBounds, isImageryError, readAreas, sceneCameraTarget } from "../src/lib/worldMap";
 
 test.describe.configure({ mode: "serial" });
 
@@ -166,10 +166,101 @@ test("research-area geometry handles antimeridian and rejects invalid storage", 
   expect(geometry.coordinates).toHaveLength(2);
   expect(() => areaGeometry([0, 20, 5, -20])).toThrow();
   expect(() => readAreas('[{"name":"invalid"}]')).toThrow();
+  expect(isImageryError({ sourceId: "imagery" })).toBe(true);
+  for (const url of ["https://gibs.earthdata.nasa.gov.evil.invalid/tile", "https://evil.invalid/gibs.earthdata.nasa.gov", "https://gibs.earthdata.nasa.gov@evil.invalid/tile"]) {
+    expect(isImageryError({ sourceId: "observations", error: { message: url } } as { sourceId: string })).toBe(false);
+  }
+  expect(sceneCameraTarget({ target_lat: NaN, target_lon: 10 })).toBeNull();
+  expect(sceneCameraTarget({ target_lat: 100, target_lon: 10 })).toBeNull();
+  expect(sceneCameraTarget(loadCapturedIntelGlobeFixture().scene_payload.camera_defaults)).toEqual([7.2, 17.5]);
+  expect(centeredMercatorZoom([0, 0], 512, 1024)).toBeCloseTo(1, 10);
+  expect(centeredMercatorZoom([180, 90], 390, 844)).toBe(12);
 });
 
-test("World map uses actual NASA tiles, reviewed geography and saved operator areas", async ({ page }) => {
+test("area vault authenticates, migrates and refuses stale or cancelled writes", async ({ page }) => {
+  await page.goto("/");
+  const bounds = loadCapturedIntelGlobeFixture().scene_payload.bounds;
+  const result = await page.evaluate(async ({ storageKey, bounds }) => {
+    const { openAreaVault, saveAreaVault, areaStorageState } = await import("/src/lib/researchAreaVault.ts");
+    const pass = "isolated-area-vault-passphrase";
+    const live = () => true;
+    const rejects = async (operation: () => Promise<unknown>) => { try { await operation(); return false; } catch { return true; } };
+    const area = { id: crypto.randomUUID(), name: "Captured context bounds roundtrip", bounds: [bounds.min_lon, bounds.min_lat, bounds.max_lon, bounds.max_lat], basis: "operator-viewport", createdAt: new Date().toISOString() };
+    const created = await openAreaVault(pass, false, live);
+    const saved = await saveAreaVault(created, [area], live);
+    const unlocked = await openAreaVault(pass, false, live);
+    const checks: Record<string, boolean> = {
+      noPlaintext: !saved.raw.includes(area.name) && !saved.raw.includes("bounds") && !saved.raw.includes(pass),
+      nonextractable: !saved.key.extractable,
+      roundtrip: JSON.stringify(unlocked.areas) === JSON.stringify([area]),
+      wrongPass: await rejects(() => openAreaVault("incorrect-passphrase", false, live)),
+      wrongPassUnchanged: localStorage.getItem(storageKey) === saved.raw,
+      cancelled: await rejects(() => saveAreaVault(saved, [], () => false)),
+      cancelledUnchanged: localStorage.getItem(storageKey) === saved.raw,
+    };
+    await navigator.locks.request(storageKey, async () => { checks.lockedWriter = await rejects(() => saveAreaVault(saved, [], live)); });
+    const outcomes = await Promise.allSettled([saveAreaVault(saved, [], live), saveAreaVault(unlocked, [area], live)]);
+    checks.concurrent = outcomes.filter(item => item.status === "fulfilled").length === 1 && outcomes.filter(item => item.status === "rejected").length === 1;
+    const latest = await openAreaVault(pass, false, live);
+    checks.freshNonce = JSON.parse(latest.raw).iv !== JSON.parse(saved.raw).iv;
+    const removed = await saveAreaVault(latest, [], live);
+    checks.removalEncrypted = areaStorageState(removed.raw) === "locked" && (await openAreaVault(pass, false, live)).areas.length === 0;
+    const corrupted = JSON.parse(saved.raw);
+    corrupted.ciphertext = (corrupted.ciphertext[0] === "A" ? "B" : "A") + corrupted.ciphertext.slice(1);
+    const damaged = JSON.stringify(corrupted);
+    localStorage.setItem(storageKey, damaged);
+    checks.tamper = await rejects(() => openAreaVault(pass, false, live));
+    checks.tamperUnchanged = localStorage.getItem(storageKey) === damaged;
+    localStorage.setItem(storageKey, '[{"name":"invalid"}]');
+    checks.invalidLegacy = await rejects(() => openAreaVault(pass, true, live));
+    const legacy = JSON.stringify([area]);
+    localStorage.setItem(storageKey, legacy);
+    checks.explicitMigration = await rejects(() => openAreaVault(pass, false, live));
+    checks.legacyUnchanged = localStorage.getItem(storageKey) === legacy;
+    const originalSet = Storage.prototype.setItem;
+    Storage.prototype.setItem = function () { throw new DOMException("Storage denied", "QuotaExceededError"); };
+    try { checks.storageDenied = await rejects(() => openAreaVault(pass, true, live)); }
+    finally { Storage.prototype.setItem = originalSet; }
+    checks.failedMigrationUnchanged = localStorage.getItem(storageKey) === legacy;
+    const migrated = await openAreaVault(pass, true, live);
+    checks.migrated = areaStorageState(migrated.raw) === "locked" && JSON.stringify(migrated.areas) === legacy && !migrated.raw.includes(area.name);
+    return checks;
+  }, { storageKey: AREA_STORAGE_KEY, bounds });
+  for (const [check, passed] of Object.entries(result)) expect(passed, check).toBe(true);
+});
+
+for (const denied of ["missing", "throwing", "constructor-denied"]) {
+  test(`Trackers activates real Leaflet when WebGL 2 is ${denied}`, async ({ page }) => {
+    await page.addInitScript(mode => {
+      const original = HTMLCanvasElement.prototype.getContext;
+      HTMLCanvasElement.prototype.getContext = function (kind: string, ...args: unknown[]) {
+        if (kind === "webgl2" && (mode !== "constructor-denied" || this.classList.contains("maplibregl-canvas"))) { if (mode === "throwing") throw new Error("GPU context denied"); return null; }
+        return original.apply(this, [kind, ...args] as never);
+      } as typeof original;
+    }, denied);
+    await page.goto("/osint?tab=trackers");
+    await expect(page.locator(".leaflet-container")).toBeVisible();
+    await expect(page.locator(".leaflet-control-zoom-in")).toBeVisible();
+    await expect(page.locator(".maplibregl-canvas")).toHaveCount(0);
+    await page.locator(".leaflet-control-zoom-in").click();
+    await expect(page.getByText("WebGL 2 is not supported in this browser. Use the fallback map.", { exact: true })).toHaveCount(0);
+  });
+}
+
+test("World classifies real NASA request failures without losing navigation", async ({ page }) => {
   test.setTimeout(45000);
+  await page.route("https://gibs.earthdata.nasa.gov/**", route => route.abort("failed"));
+  await page.goto("/");
+  await page.getByText("Workspace", { exact: true }).click();
+  await page.getByRole("button", { name: "Open World", exact: true }).click();
+  await expect(page.getByText(/Some imagery tiles are unavailable/)).toBeVisible();
+  await page.getByRole("button", { name: "Map tools", exact: true }).click();
+  await expect(page.getByRole("button", { name: "Reset map view", exact: true })).toBeEnabled();
+  await expect(page.getByText(/^Map unavailable:/)).toHaveCount(0);
+});
+
+test("World map uses actual NASA tiles, reviewed geography and saved operator areas", async ({ page, context }) => {
+  test.setTimeout(60000);
   const fixture = loadCapturedIntelGlobeFixture();
   const failures: string[] = [];
   page.on("pageerror", error => failures.push(error.message));
@@ -183,7 +274,12 @@ test("World map uses actual NASA tiles, reviewed geography and saved operator ar
   await tile;
   await expect(page.getByTestId("world-map-canvas").locator("canvas")).toBeVisible();
   await expect(page.getByText("Loading world view...", { exact: true })).toHaveCount(0);
+  const center = page.getByLabel("Map center coordinates", { exact: true });
+  await expect(center).toHaveText("17.500°, 7.200°");
   await page.getByRole("button", { name: "Map tools", exact: true }).click();
+  await page.getByLabel("Research-area passphrase", { exact: true }).fill("isolated-map-ui-passphrase");
+  await page.getByLabel("Repeat research-area passphrase", { exact: true }).fill("isolated-map-ui-passphrase");
+  await page.getByRole("button", { name: "Create encrypted area storage", exact: true }).click();
   await page.getByLabel("Find country", { exact: true }).fill("France");
   await page.getByRole("button", { name: "France", exact: true }).click();
   await page.getByLabel("Map projection", { exact: true }).selectOption("mercator");
@@ -192,24 +288,66 @@ test("World map uses actual NASA tiles, reviewed geography and saved operator ar
   await page.getByLabel("Research area name", { exact: true }).fill("Browser-verified viewport");
   await page.getByRole("button", { name: "Save current map area", exact: true }).click();
   await expect(page.getByRole("button", { name: "Browser-verified viewport", exact: true })).toBeVisible();
+  const ciphertext = await page.evaluate(key => localStorage.getItem(key), AREA_STORAGE_KEY);
+  expect(ciphertext).not.toContain("Browser-verified viewport");
+  expect(ciphertext).not.toContain("bounds");
+  await page.getByRole("button", { name: "Lock research areas", exact: true }).click();
+  await expect(page.getByRole("button", { name: "Browser-verified viewport", exact: true })).toHaveCount(0);
+  await page.getByLabel("Research-area passphrase", { exact: true }).fill("incorrect-passphrase");
+  await page.getByRole("button", { name: "Unlock research areas", exact: true }).click();
+  await expect(page.getByText(/Could not unlock research areas/)).toBeVisible();
+  expect(await page.evaluate(key => localStorage.getItem(key), AREA_STORAGE_KEY)).toBe(ciphertext);
+  await page.getByLabel("Research-area passphrase", { exact: true }).fill("isolated-map-ui-passphrase");
+  await page.getByRole("button", { name: "Unlock research areas", exact: true }).click();
+  await expect(page.getByRole("button", { name: "Browser-verified viewport", exact: true })).toBeVisible();
+  const secondTab = await context.newPage();
+  await secondTab.goto("/");
+  await secondTab.evaluate(async () => {
+    const { openAreaVault, saveAreaVault } = await import("/src/lib/researchAreaVault.ts");
+    const session = await openAreaVault("isolated-map-ui-passphrase", false, () => true);
+    await saveAreaVault(session, session.areas, () => true);
+  });
+  await expect(page.getByRole("button", { name: "Browser-verified viewport", exact: true })).toHaveCount(0);
+  await expect(page.getByText(/Research areas changed in another tab/)).toBeVisible();
+  await secondTab.close();
+  await page.getByRole("button", { name: "Close world view", exact: true }).click();
+  await page.getByTestId("osint-open-globe").click();
+  await page.getByTestId("globe-scene-intel").click();
+  await expect(center).toHaveText("17.500°, 7.200°");
+  await page.getByRole("button", { name: "Map tools", exact: true }).click();
+  await expect(page.getByRole("button", { name: "Unlock research areas", exact: true })).toBeVisible();
+  await page.getByLabel("Research-area passphrase", { exact: true }).fill("isolated-map-ui-passphrase");
+  await page.getByRole("button", { name: "Unlock research areas", exact: true }).click();
+  await expect(page.getByRole("button", { name: "Browser-verified viewport", exact: true })).toBeVisible();
   await expect(page.getByText(/operator-defined viewport bounds/)).toBeVisible();
   await page.getByRole("button", { name: "Map tools", exact: true }).click();
-  await page.screenshot({ path: "test-results/world-map-desktop.png" });
+  await page.screenshot({ path: "test-results/world-map-desktop.jpg", quality: 65 });
   await page.getByRole("button", { name: "Map tools", exact: true }).click();
+  await page.getByLabel("Map projection", { exact: true }).selectOption("mercator");
   await page.getByLabel("Historical satellite basemap").uncheck();
   await page.setViewportSize({ width: 390, height: 844 });
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBeTruthy();
-  await page.screenshot({ path: "test-results/world-map-mobile.png" });
+  await page.screenshot({ path: "test-results/world-map-mobile.jpg", quality: 65 });
   await page.getByRole("button", { name: "Remove Browser-verified viewport", exact: true }).click();
   await expect(page.getByRole("button", { name: "Browser-verified viewport", exact: true })).toHaveCount(0);
   await page.getByRole("button", { name: "Reset map view", exact: true }).click();
+  await expect(center).toHaveText("17.500°, 7.200°");
   await page.getByLabel("Map projection", { exact: true }).selectOption("globe");
   await page.getByRole("button", { name: "Map tools", exact: true }).click();
+  await page.getByTestId("globe-controls-toggle").click();
+  await page.getByTestId("globe-preset-overview").click();
+  const canvas = page.getByTestId("world-map-canvas").locator("canvas");
+  await canvas.focus();
+  await page.keyboard.press("ArrowRight");
+  await expect(center).not.toHaveText("17.500°, 7.200°");
+  await page.getByTestId("globe-preset-overview").click();
+  await expect(center).toHaveText("17.500°, 7.200°");
+  await page.getByTestId("globe-controls-toggle").click();
   await page.getByTestId("globe-browse-toggle").click();
   await page.locator("#globe-browse-panel button").first().click();
   await expect(page.getByTestId("globe-inspector")).not.toContainText("Select an object on the globe");
   await page.getByRole("button", { name: "Collapse context panel", exact: true }).click();
-  await page.screenshot({ path: "test-results/world-map-mobile-browse.png" });
+  await page.screenshot({ path: "test-results/world-map-mobile-browse.jpg", quality: 65 });
   expect(failures).toEqual([]);
 });
 
