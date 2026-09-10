@@ -842,12 +842,14 @@ export function TrackersPanel() {
       }
       mapInitRef.current = true;
       const canvas = document.createElement("canvas");
-      const hasWebgl =
-        !!window.WebGL2RenderingContext && canvas.getContext("webgl2");
+      let hasWebgl = false;
+      try { hasWebgl = !!window.WebGL2RenderingContext && !!canvas.getContext("webgl2"); }
+      catch { /* A denied GPU context must take the same fallback path. */ }
       if (!hasWebgl) {
         setMapError("WebGL 2 is not supported in this browser. Use the fallback map.");
         setMapStatus("WebGL 2 not supported.");
         mapInitRef.current = false;
+        setMapFallback(true);
         return;
       }
       setMapStatus("Booting map engine...");
@@ -905,6 +907,7 @@ export function TrackersPanel() {
         setMapError(err instanceof Error ? err.message : "Map initialization failed.");
         setMapStatus("Map init failed.");
         mapInitRef.current = false;
+        setMapFallback(true);
         return;
       }
       setMapStatus("Map instance created.");

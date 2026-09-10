@@ -1,16 +1,21 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import type { Map as MapInstance, GeoJSONSource, StyleSpecification } from "maplibre-gl";
 import type { FeatureCollection } from "geojson";
 import { loadMapLibre } from "../../lib/maplibre";
 import type { GlobeGeographyData } from "../../lib/globeGeography";
-import { AREA_STORAGE_KEY, BLUE_MARBLE_TILES, areaCollection, coordinateBounds, normalizeLongitude, observationCollection, readAreas, type MapObservation, type ResearchArea } from "../../lib/worldMap";
+import { BLUE_MARBLE_TILES, areaCollection, centeredMercatorZoom, coordinateBounds, isImageryError, normalizeLongitude, observationCollection, sceneCameraTarget, validateBounds, type MapObservation, type ResearchArea, type SceneCameraDefaults, type SceneBounds } from "../../lib/worldMap";
+import { useResearchAreas } from "../../lib/useResearchAreas";
 
 type Props = {
   geography: GlobeGeographyData | null;
   observations: MapObservation[];
   focus: { lat?: number | null; lon?: number | null } | null;
   cameraPreset: "overview" | "focus" | "free";
+  cameraDefaults?: SceneCameraDefaults;
+  sceneBounds?: SceneBounds;
+  sceneKey: string | null;
+  cameraRevision: number;
   reducedMotion: boolean;
   onSelect: (id: string) => void;
   toolsHost: HTMLElement | null;
@@ -39,7 +44,7 @@ const STYLE: StyleSpecification = {
   ],
 };
 
-export function WorldMapCanvas({ geography, observations, focus, cameraPreset, reducedMotion, onSelect, toolsHost }: Props) {
+export function WorldMapCanvas({ geography, observations, focus, cameraPreset, cameraDefaults, sceneBounds, sceneKey, cameraRevision, reducedMotion, onSelect, toolsHost }: Props) {
   const container = useRef<HTMLDivElement>(null);
   const mapRef = useRef<MapInstance | null>(null);
   const selectRef = useRef(onSelect);
@@ -52,15 +57,26 @@ export function WorldMapCanvas({ geography, observations, focus, cameraPreset, r
   const [coordinates, setCoordinates] = useState("0.000°, 0.000°");
   const [query, setQuery] = useState("");
   const [areaName, setAreaName] = useState("");
-  const [areas, setAreas] = useState<ResearchArea[]>([]);
+  const vault = useResearchAreas();
+  const { areas } = vault;
+  const [passphrase, setPassphrase] = useState("");
+  const [repeatPassphrase, setRepeatPassphrase] = useState("");
   const [areaError, setAreaError] = useState<string | null>(null);
-  const [areaStorageValid, setAreaStorageValid] = useState(true);
   const [toolsOpen, setToolsOpen] = useState(false);
-
-  useEffect(() => {
-    try { setAreas(readAreas(localStorage.getItem(AREA_STORAGE_KEY))); }
-    catch (failure) { setAreaStorageValid(false); setAreaError(failure instanceof Error ? failure.message : "Saved areas unavailable."); }
-  }, []);
+  const framedScene = useRef<string | null>(null);
+  const resetOverview = useCallback(() => {
+    const map = mapRef.current;
+    if (!map) return;
+    const bounds = [sceneBounds?.min_lon, sceneBounds?.min_lat, sceneBounds?.max_lon, sceneBounds?.max_lat];
+    // API distance describes the retired sphere camera, not a MapLibre zoom.
+    // Use geographic bounds for scale, with the API target taking precedence.
+    const fitted = validateBounds(bounds) ? map.cameraForBounds([[bounds[0], bounds[1]], [bounds[2] < bounds[0] ? bounds[2] + 360 : bounds[2], bounds[3]]], { padding: Math.min(80, map.getContainer().clientWidth / 5), maxZoom: 6 }) : undefined;
+    const pitch = cameraDefaults?.pitch;
+    const bearing = cameraDefaults?.bearing;
+    const target = sceneCameraTarget(cameraDefaults);
+    const minimumZoom = projection === "mercator" && target ? centeredMercatorZoom(target, map.getContainer().clientWidth, map.getContainer().clientHeight) : 0;
+    map.easeTo({ center: target ?? fitted?.center ?? [0, 20], zoom: Math.max(fitted?.zoom ?? 1.2, minimumZoom), pitch: typeof pitch === "number" && Number.isFinite(pitch) ? Math.max(0, Math.min(60, pitch)) : 0, bearing: typeof bearing === "number" && Number.isFinite(bearing) ? bearing : 0, duration: reducedMotion ? 0 : 600 });
+  }, [cameraDefaults?.target_lat, cameraDefaults?.target_lon, cameraDefaults?.pitch, cameraDefaults?.bearing, sceneBounds?.min_lon, sceneBounds?.min_lat, sceneBounds?.max_lon, sceneBounds?.max_lat, reducedMotion, projection]);
 
   useEffect(() => {
     let cancelled = false;
@@ -68,7 +84,7 @@ export function WorldMapCanvas({ geography, observations, focus, cameraPreset, r
     let resize: ResizeObserver | null = null;
     loadMapLibre().then(lib => {
       if (cancelled || !container.current) return;
-      const instance: MapInstance = new lib.Map({ container: container.current, style: STYLE, center: [0, 20], zoom: 1.2, maxZoom: 12, renderWorldCopies: false, attributionControl: false, canvasContextAttributes: { antialias: true } });
+      const instance: MapInstance = new lib.Map({ container: container.current, style: STYLE, center: sceneCameraTarget(cameraDefaults) ?? [0, 20], zoom: 1.2, maxZoom: 12, renderWorldCopies: false, attributionControl: false, canvasContextAttributes: { antialias: true } });
       map = instance;
       mapRef.current = instance;
       map.addControl(new lib.AttributionControl({ compact: false }), "bottom-right");
@@ -84,7 +100,7 @@ export function WorldMapCanvas({ geography, observations, focus, cameraPreset, r
       });
       map.on("error", event => {
         if (cancelled) return;
-        if ((event as { sourceId?: string }).sourceId === "imagery" || event.error?.message?.includes("gibs.earthdata.nasa.gov")) setTileError(true);
+        if (isImageryError(event as { sourceId?: string })) setTileError(true);
         else setError(event.error?.message || "Map rendering unavailable.");
       });
       map.on("moveend", () => { const center = map!.getCenter(); setCoordinates(`${center.lat.toFixed(3)}°, ${normalizeLongitude(center.lng).toFixed(3)}°`); });
@@ -109,37 +125,39 @@ export function WorldMapCanvas({ geography, observations, focus, cameraPreset, r
   useEffect(() => { if (ready) mapRef.current?.setProjection({ type: projection }); }, [ready, projection]);
   useEffect(() => {
     if (!ready) return;
-    const duration = reducedMotion ? 0 : 600;
-    if (cameraPreset === "overview") mapRef.current?.easeTo({ center: [0, 20], zoom: 1.2, pitch: 0, bearing: 0, duration });
-    else if (cameraPreset === "focus" && typeof focus?.lon === "number" && typeof focus.lat === "number") mapRef.current?.easeTo({ center: [focus.lon, focus.lat], zoom: Math.max(mapRef.current.getZoom(), 4), duration });
-  }, [ready, cameraPreset, focus?.lat, focus?.lon, reducedMotion]);
+    const firstFrame = sceneKey !== null && framedScene.current !== sceneKey;
+    if (firstFrame) framedScene.current = sceneKey;
+    if (cameraPreset === "overview" || firstFrame) resetOverview();
+  }, [ready, cameraPreset, cameraRevision, sceneKey, resetOverview]);
+  useEffect(() => {
+    if (ready && cameraPreset === "focus" && typeof focus?.lon === "number" && typeof focus.lat === "number") mapRef.current?.easeTo({ center: [focus.lon, focus.lat], zoom: Math.max(mapRef.current.getZoom(), 4), duration: reducedMotion ? 0 : 600 });
+  }, [ready, cameraPreset, cameraRevision, focus?.lat, focus?.lon, reducedMotion]);
 
   const countries = useMemo(() => !query.trim() ? [] : (geography?.country_features || []).filter(country => country.name.toLowerCase().includes(query.trim().toLowerCase())).slice(0, 8), [query, geography]);
   function fit(bounds: ResearchArea["bounds"]) {
     const [west, south, east, north] = bounds;
     mapRef.current?.fitBounds([[west, south], [east < west ? east + 360 : east, north]], { padding: 100, maxZoom: 8, duration: reducedMotion ? 0 : 600 });
   }
-  function saveArea() {
-    if (!mapRef.current || !areaName.trim() || !areaStorageValid) return;
+  async function saveArea() {
+    if (!mapRef.current || !areaName.trim() || vault.state !== "unlocked" || vault.busy) return;
     try {
-      const existing = readAreas(localStorage.getItem(AREA_STORAGE_KEY));
-      if (existing.length >= 20) throw new Error("Maximum 20 saved research areas in this browser.");
       const bounds = mapRef.current.getBounds();
       const width = bounds.getEast() - bounds.getWest();
       if (width >= 360) throw new Error("Zoom in before saving an area of interest.");
       const area: ResearchArea = { id: crypto.randomUUID(), name: areaName.trim(), bounds: [normalizeLongitude(bounds.getWest()), bounds.getSouth(), normalizeLongitude(bounds.getEast()), bounds.getNorth()], basis: "operator-viewport", createdAt: new Date().toISOString() };
-      const next = readAreas(JSON.stringify([...existing, area]));
-      localStorage.setItem(AREA_STORAGE_KEY, JSON.stringify(next));
-      setAreas(next); setAreaName(""); setAreaError(null);
+      setAreaError(null);
+      if (await vault.update(existing => {
+        if (existing.length >= 20) throw new Error("Maximum 20 saved research areas in this browser.");
+        return [...existing, area];
+      })) setAreaName("");
     } catch (failure) { setAreaError(failure instanceof Error ? failure.message : "Could not save research area."); }
   }
 
-  function removeArea(id: string) {
-    try {
-      const next = readAreas(localStorage.getItem(AREA_STORAGE_KEY)).filter(area => area.id !== id);
-      localStorage.setItem(AREA_STORAGE_KEY, JSON.stringify(next));
-      setAreas(next); setAreaError(null);
-    } catch (failure) { setAreaError(failure instanceof Error ? failure.message : "Could not remove research area."); }
+  async function unlockAreas() {
+    setAreaError(null);
+    const entered = passphrase;
+    setPassphrase(""); setRepeatPassphrase("");
+    await vault.unlock(entered, vault.state === "legacy");
   }
 
   return <>
@@ -148,7 +166,7 @@ export function WorldMapCanvas({ geography, observations, focus, cameraPreset, r
       <button type="button" className="globe-action-button" aria-expanded={toolsOpen} onClick={() => setToolsOpen(value => !value)}>Map tools</button>
       {toolsOpen && <div className="world-map-tools__body">
         <label>Projection<select aria-label="Map projection" value={projection} onChange={event => setProjection(event.target.value as typeof projection)}><option value="globe">Globe</option><option value="mercator">Flat map</option></select></label>
-        <button type="button" disabled={!ready} onClick={() => mapRef.current?.easeTo({ center: [0, 20], zoom: 1.2, pitch: 0, bearing: 0, duration: reducedMotion ? 0 : 600 })}>Reset map view</button>
+        <button type="button" disabled={!ready} onClick={resetOverview}>Reset map view</button>
         <label><input type="checkbox" checked={imagery} onChange={event => setImagery(event.target.checked)} /> Historical satellite basemap</label>
         <p>NASA Blue Marble composite; not live imagery or street-level detail. Raster coverage ends at ±85.05°. Borders are de facto context, not legal boundaries.</p>
         <label>Find country<input value={query} onChange={event => setQuery(event.target.value)} placeholder="Country name" /></label>
@@ -156,16 +174,26 @@ export function WorldMapCanvas({ geography, observations, focus, cameraPreset, r
           fit(coordinateBounds(country.rings.flat()));
         }}>{country.name}</button>)}
         {query.trim() && !countries.length && <p>No matching country in the reviewed context.</p>}
-        <label>Research area name<input value={areaName} maxLength={80} onChange={event => setAreaName(event.target.value)} /></label>
-        <button type="button" disabled={!ready || !areaName.trim() || !areaStorageValid} onClick={saveArea}>Save current map area</button>
-        <p>Areas are operator-defined viewport bounds, not event extents. Saved only in this browser.</p>
-        {areas.map(area => <div key={area.id} className="flex gap-2"><button type="button" className="flex-1" onClick={() => fit(area.bounds)}>{area.name}</button><button type="button" aria-label={`Remove ${area.name}`} disabled={!areaStorageValid} onClick={() => removeArea(area.id)}>Remove</button></div>)}
-        {areaError && <p role="alert">{areaError}</p>}
+        <p>Areas are operator-defined viewport bounds, not event extents. Saved encrypted only in this browser; not included in database backups.</p>
+        {vault.state === "legacy" && <p role="alert">Existing areas are unencrypted. Encrypt them with a new passphrase to continue. Failed migration leaves the original data unchanged.</p>}
+        {vault.state !== "unlocked" && vault.state !== "invalid" && <>
+          <label>Research-area passphrase<input type="password" autoComplete="off" value={passphrase} maxLength={128} onChange={event => setPassphrase(event.target.value)} /></label>
+          {vault.state !== "locked" && <label>Repeat research-area passphrase<input type="password" autoComplete="off" value={repeatPassphrase} maxLength={128} onChange={event => setRepeatPassphrase(event.target.value)} /></label>}
+          <p>Use 12–128 characters. Keep it separately: there is no passphrase recovery. Unlock again after closing World. Encryption does not protect an unlocked page.</p>
+          <button type="button" disabled={vault.busy || passphrase.length < 12 || (vault.state !== "locked" && passphrase !== repeatPassphrase)} onClick={unlockAreas}>{vault.busy ? "Unlocking…" : vault.state === "legacy" ? "Encrypt existing research areas" : vault.state === "new" ? "Create encrypted area storage" : "Unlock research areas"}</button>
+        </>}
+        {vault.state === "unlocked" && <>
+          <button type="button" onClick={() => { vault.lock(); setAreaName(""); setAreaError(null); }}>Lock research areas</button>
+          <label>Research area name<input value={areaName} maxLength={80} onChange={event => setAreaName(event.target.value)} /></label>
+          <button type="button" disabled={!ready || !areaName.trim() || vault.busy} onClick={saveArea}>Save current map area</button>
+          {areas.map(area => <div key={area.id} className="flex gap-2"><button type="button" className="flex-1" onClick={() => fit(area.bounds)}>{area.name}</button><button type="button" aria-label={`Remove ${area.name}`} disabled={vault.busy} onClick={() => { setAreaError(null); void vault.update(existing => existing.filter(item => item.id !== area.id)); }}>Remove</button></div>)}
+        </>}
+        {(areaError || vault.error) && <p role="alert">{areaError || vault.error}</p>}
       </div>}
       <output aria-label="Map center coordinates">{coordinates}</output>
       {(!ready && !error) && <p role="status">Loading map engine…</p>}
       {error && <p role="alert">Map unavailable: {error}. The source-backed Browse list remains available.</p>}
-      {tileError && imagery && <p role="status">Some imagery tiles are unavailable. Reviewed vector geography remains visible; satellite coverage may be incomplete.</p>}
+      {tileError && imagery && <p role="status">Some imagery tiles are unavailable. Local vector context remains available when loaded; satellite coverage may be incomplete.</p>}
     </section>, toolsHost)}
   </>;
 }

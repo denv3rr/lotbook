@@ -88,7 +88,10 @@ type ScenePayload = {
     target_lat?: number;
     target_lon?: number;
     distance?: number;
+    pitch?: number;
+    bearing?: number;
   };
+  bounds?: { min_lon?: number; min_lat?: number; max_lon?: number; max_lat?: number };
   timeline?: {
     mode?: string;
     point_count?: number;
@@ -859,6 +862,7 @@ export function GlobeOverlay() {
   const [trackerOperatorDraft, setTrackerOperatorDraft] = useState(sceneState.trackerOperator);
   const sceneId = activeScene?.id || "overview";
   const [mapToolsHost, setMapToolsHost] = useState<HTMLDivElement | null>(null);
+  const [cameraRevision, setCameraRevision] = useState(0);
   const hasTrackerFallback = activeScene?.fallbackStrategy === "trackerSnapshot";
   const { data, error, loading, refresh } = useApi<ScenePayload>(
     activeScenePath || "/api/osint/scene/overview?mode=combined",
@@ -1613,6 +1617,10 @@ export function GlobeOverlay() {
               ...visiblePulseFeatures.map(feature => ({ id: feature.id, geometry: feature.geometry as Geometry, color: pulseAccent(feature), kind: "pulse" as const })),
             ]}
             cameraPreset={sceneState.cameraPreset}
+            cameraRevision={cameraRevision}
+            cameraDefaults={scene?.camera_defaults}
+            sceneBounds={scene?.bounds}
+            sceneKey={scene?.scene_id ?? null}
             focus={selectedFocus}
             reducedMotion={reducedMotion}
             onSelect={id => { setSelectedId(id); setOverlayVisibility("detailsVisible", true); }}
@@ -1909,7 +1917,7 @@ export function GlobeOverlay() {
                 type="button"
                 data-testid={`globe-preset-${option.id}`}
                 aria-pressed={option.id === sceneState.cameraPreset}
-                onClick={() => setCameraPreset(option.id)}
+                onClick={() => { setCameraPreset(option.id); setCameraRevision(value => value + 1); }}
                 className={
                   option.id === sceneState.cameraPreset
                     ? "globe-toggle globe-toggle--active"
