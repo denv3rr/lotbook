@@ -1,0 +1,111 @@
+{
+  "reviewed_on": "2026-09-09",
+  "scope": "README Standards And Governance and Methods And Risk References; engineering traceability, not certification",
+  "references": [
+    {
+      "id": "ssdf", "version": "SP 800-218 / SSDF 1.1 final; 1.2 draft monitored", "coverage": "partial",
+      "url": "https://csrc.nist.gov/pubs/sp/800/218/final",
+      "implementation": [".github/workflows/ci.yml", ".github/workflows/codeql.yml", "scripts/check_guardrails.py"],
+      "verification": ["tests/test_guardrail_scan.py", "tests/test_inspect.py"],
+      "limitation": "CI and inspection support secure development; supplier governance, release evidence and vulnerability-response ownership remain incomplete."
+    },
+    {
+      "id": "security-controls", "version": "SP 800-53 Rev. 5, catalog release 5.2.0", "coverage": "partial",
+      "url": "https://csrc.nist.gov/pubs/sp/800/53/r5/upd1/final",
+      "implementation": ["web_api/auth.py", "web_api/routes/stream.py", "utils/recovery.py"],
+      "verification": ["tests/test_security.py", "tests/test_recovery.py"],
+      "limitation": "Shared API keys are not individual/firm authorization. Tailored control baseline, audit protection, update governance and operational assessment remain release gates."
+    },
+    {
+      "id": "secure-systems", "version": "SP 800-160 Vol. 1 Rev. 1 (2022)", "coverage": "partial",
+      "url": "https://csrc.nist.gov/pubs/sp/800/160/v1/r1/final",
+      "implementation": ["clearctl.py", "utils/recovery.py", "web_api/server.py"],
+      "verification": ["tests/test_launcher_utils.py", "tests/test_recovery.py", "web/tests/advisory.spec.ts"],
+      "limitation": "Owned shutdown and candidate-only recovery are bounded controls, not a complete lifecycle assurance case or a production recovery drill."
+    },
+    {
+      "id": "ai-risk", "version": "AI RMF 1.0 (2023); revision in progress", "coverage": "partial",
+      "url": "https://www.nist.gov/itl/ai-risk-management-framework",
+      "implementation": ["web_api/routes/assistant.py", "modules/assistant_exports.py"],
+      "verification": ["tests/test_web_api_assistant.py", "tests/test_assistant_exports.py"],
+      "limitation": "Scope and provenance checks do not establish full AI governance, deployed-model evaluations, monitoring or organizational risk acceptance. Some legacy tests are unit-only."
+    },
+    {
+      "id": "accessibility", "version": "Revised Section 508 Standards (2017, applicable updates); WCAG 2.0 A/AA incorporation", "coverage": "partial",
+      "url": "https://www.access-board.gov/ict/",
+      "implementation": ["web/src/components/layout/AppShell.tsx", "web/src/components/scene/WorldMapCanvas.tsx"],
+      "verification": ["web/tests/advisory.spec.ts"],
+      "limitation": "Keyboard, labels, reduced-motion and mobile checks are bounded evidence. Full assistive-technology, contrast, export and conformance assessment is not complete."
+    },
+    {
+      "id": "system-safety", "version": "MIL-STD-882E Change 1, 2023-09-27", "coverage": "partial",
+      "url": "https://quicksearch.dla.mil/qsDocDetails.aspx?ident_number=36027",
+      "implementation": ["clearctl.py", "utils/recovery.py", "scripts/stage_recovery.py"],
+      "verification": ["tests/test_launcher_utils.py", "tests/test_recovery.py", "web/tests/advisory.spec.ts"],
+      "limitation": "Fail-closed ownership and non-overwrite controls reflect hazard reduction. No formal DoD hazard log, acceptance authority or system-safety certification is claimed."
+    },
+    {
+      "id": "fractional-return", "version": "pandas Series.pct_change API (documentation reviewed 2026-09-09)", "coverage": "method",
+      "url": "https://pandas.pydata.org/docs/reference/api/pandas.Series.pct_change.html",
+      "implementation": ["modules/client_mgr/data.py", "modules/client_mgr/valuation.py"],
+      "verification": ["tests/test_advisory_math_regressions.py"],
+      "limitation": "Fixed current quantities on shared prices are a price-return reconstruction, not transaction/cash-flow-adjusted historical client performance."
+    },
+    {
+      "id": "sharpe", "version": "William F. Sharpe, The Sharpe Ratio (1994)", "coverage": "method",
+      "url": "https://web.stanford.edu/~wfsharpe/art/sr/SR.htm",
+      "implementation": ["modules/client_mgr/calculations.py", "modules/client_mgr/toolkit_payloads.py", "modules/client_mgr/regime.py"],
+      "verification": ["tests/test_reference_contracts.py", "tests/test_toolkit_metrics.py"],
+      "limitation": "Constant annual risk-free convention and square-root-time scaling are explicit approximations; no serial-correlation adjustment or predictive guarantee."
+    },
+    {
+      "id": "riskmetrics", "version": "RiskMetrics Technical Document, 4th edition (1996); historical method reference", "coverage": "method",
+      "url": "https://www.msci.com/research-and-insights/paper/1996-riskmetrics-technical-document",
+      "implementation": ["modules/client_mgr/calculations.py"],
+      "verification": ["tests/test_financial_calculations.py", "tests/test_reference_contracts.py"],
+      "limitation": "EWMA uses lambda 0.94 and sqrt(h) scaling. Historical VaR and inclusive empirical tail mean are documented Clear conventions, not regulatory ES."
+    },
+    {
+      "id": "hhi", "version": "DOJ HHI overview updated 2024-01-17, referencing 2023 Merger Guidelines", "coverage": "method",
+      "url": "https://www.justice.gov/atr/herfindahl-hirschman-index",
+      "implementation": ["modules/view_models.py", "modules/reporting/engine.py"],
+      "verification": ["tests/test_view_models.py"],
+      "limitation": "Clear sums squared sector fractions of priced securities (0-1), not firm market percentages (0-10000). Manual assets are excluded; no-data zero remains a sentinel. No antitrust or suitability conclusion. Legacy route evidence remains limited."
+    },
+    {
+      "id": "cusum", "version": "NIST/SEMATECH e-Handbook 6.3.2.3, tabular CUSUM", "coverage": "method",
+      "url": "https://www.itl.nist.gov/div898/handbook/pmc/section3/pmc323.htm",
+      "implementation": ["modules/client_mgr/calculations.py", "modules/client_mgr/patterns.py"],
+      "verification": ["tests/test_financial_calculations.py"],
+      "limitation": "Full-window mean/sample standard deviation, k=0.5s, h=5s default and reset on signals. Retrospective detection, not online calibration or a false-alarm probability."
+    },
+    {
+      "id": "capm", "version": "William F. Sharpe, Capital Asset Prices (1964)", "coverage": "method",
+      "url": "https://doi.org/10.2307/2977928",
+      "implementation": ["modules/client_mgr/calculations.py"],
+      "verification": ["tests/test_financial_calculations.py", "tests/test_advisory_math_regressions.py", "tests/test_reference_contracts.py"],
+      "limitation": "Aligned sample covariance/variance estimates and alpha are descriptive, not a validated expected-return forecast. Zero benchmark variance is unavailable."
+    },
+    {
+      "id": "permutation-entropy", "version": "Bandt and Pompe, Physical Review Letters 88, 174102 (2002)", "coverage": "method",
+      "url": "https://doi.org/10.1103/PhysRevLett.88.174102",
+      "implementation": ["modules/client_mgr/calculations.py", "modules/client_mgr/patterns.py"],
+      "verification": ["tests/test_financial_calculations.py"],
+      "limitation": "Normalized ordinal-pattern entropy on reconstructed values. General-order tie semantics and legacy insufficient-input zeros need further hardening; not confidence."
+    },
+    {
+      "id": "hurst", "version": "H. E. Hurst, Long-Term Storage Capacity of Reservoirs (1951)", "coverage": "method",
+      "url": "https://doi.org/10.1061/TACEAT.0006518",
+      "implementation": ["modules/client_mgr/calculations.py", "modules/client_mgr/patterns.py"],
+      "verification": ["tests/test_financial_calculations.py", "tests/test_advisory_math_regressions.py"],
+      "limitation": "DOI/title verified with Crossref publisher metadata; full publisher text unavailable in this pass. Disjoint-block R/S slope clipped to [0,1]; finite-sample bias and predictive validity are not established."
+    },
+    {
+      "id": "basel-es", "version": "Basel Framework MAR33, current edition effective 2023-01-01, published 2020-06-05", "coverage": "background",
+      "url": "https://www.bis.org/committees/bcbs/basel-framework/standard/mar/33/inforce/2023-01-01/published/2020-06-05",
+      "implementation": ["modules/client_mgr/calculations.py", "docs/methods.md"],
+      "verification": ["tests/test_reference_contracts.py", "tests/test_financial_calculations.py"],
+      "limitation": "Regulatory ES is not implemented. 95/99% period-return tail means are not 97.5% stressed, liquidity-adjusted, approved capital models. National adoption and supervisory requirements require separate review."
+    }
+  ]
+}

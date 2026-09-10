@@ -321,7 +321,7 @@ class RegimeModels:
             except Exception:
                 bench_returns = pd.Series(dtype=float)
 
-        metrics = calculations.compute_core_metrics(returns, bench_returns)
+        metrics = calculations.compute_core_metrics(returns, bench_returns, risk_free_annual)
 
         if not bench_returns.empty and "beta" in metrics:
             combined = pd.concat([returns, bench_returns], axis=1).dropna()
@@ -329,12 +329,16 @@ class RegimeModels:
                 ann_factor = calculations.annualization_factor_from_index(combined.iloc[:, 0])
                 avg_p = float(combined.iloc[:, 0].mean() * ann_factor)
                 avg_m = float(combined.iloc[:, 1].mean() * ann_factor)
-                beta = float(metrics.get("beta", 0.0))
-                alpha_annual = avg_p - (risk_free_annual + beta * (avg_m - risk_free_annual))
-                corr = combined.iloc[:, 0].corr(combined.iloc[:, 1])
-                if corr is not None:
-                    metrics["r_squared"] = float(corr * corr)
-                metrics["alpha_annual"] = float(alpha_annual)
+                beta = metrics["beta"]
+                metrics["alpha_annual"] = (
+                    float(avg_p - (risk_free_annual + beta * (avg_m - risk_free_annual)))
+                    if beta is not None and math.isfinite(beta) else None
+                )
+                metrics["r_squared"] = None
+                if combined.iloc[:, 0].std(ddof=1) > 0 and combined.iloc[:, 1].std(ddof=1) > 0:
+                    corr = float(combined.iloc[:, 0].corr(combined.iloc[:, 1]))
+                    if math.isfinite(corr):
+                        metrics["r_squared"] = corr * corr
 
         snap["metrics"].update(metrics)
         snap["ticker"] = symbol

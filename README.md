@@ -170,12 +170,12 @@ The core deterministic formulas are implemented in
 | --- | --- | --- | --- |
 | Annualization factor | `A = seconds_per_year / mean(delta_t)` or `252` fallback | Uses timestamp spacing when available. | [calculations.py](modules/client_mgr/calculations.py) |
 | Mean annual return | `mean(r) * A` | Used in core and risk metrics. | [calculations.py](modules/client_mgr/calculations.py) |
-| Annualized volatility | `std(r, ddof=1) * sqrt(A)` | Sample standard deviation. | [Investor.gov Sharpe ratio overview](https://www.investor.gov/introduction-investing/investing-basics/terms-and-definitions/sharpe-ratio) |
-| Sharpe ratio | `((mean(r) - r_f / A) / std(r)) * sqrt(A)` | Sample std (`ddof=1`). Lightweight paths may use `r_f = 0`. | [Investor.gov Sharpe ratio overview](https://www.investor.gov/introduction-investing/investing-basics/terms-and-definitions/sharpe-ratio) |
+| Annualized volatility | `std(r, ddof=1) * sqrt(A)` | Sample standard deviation; unavailable with fewer than two observations. | [Sharpe 1994](https://web.stanford.edu/~wfsharpe/art/sr/SR.htm) |
+| Sharpe ratio | `((mean(r) - r_f / A) / std(r)) * sqrt(A)` | Sample std (`ddof=1`). Lightweight paths may use `r_f = 0`; undefined variability is unavailable. | [Sharpe 1994](https://web.stanford.edu/~wfsharpe/art/sr/SR.htm) |
 | Sortino ratio | `(mean(r) - r_f / A) / downside_dev * sqrt(A)` | `downside_dev = sqrt(mean(min(r - r_f/A, 0)^2))` over all periods. | [calculations.py](modules/client_mgr/calculations.py) |
 | Beta | `cov(r_p, r_m, ddof=1) / var(r_m, ddof=1)` | Aligned series only. Missing market variance is unavailable, not 1.0. | [Sharpe 1964 CAPM paper](https://doi.org/10.2307/2977928) |
-| Max drawdown | `min((V_t - peak(V_t)) / peak(V_t))` | Empty series is unavailable, not zero. | [calculations.py](modules/client_mgr/calculations.py) |
-| Historical VaR / CVaR | `quantile(r, 1-q)` and `mean(r <= VaR_q)` | Left-tail *returns*, not positive losses. | [Investor.gov VaR bulletin](https://www.investor.gov/introduction-investing/general-resources/news-alerts/alerts-bulletins/investor-bulletins/understanding-value-risk) |
+| Max drawdown | `min((V_t - peak_t) / peak_t)`, `peak_t = max(1, V_1,...,V_t)` | Includes initial capital before the first return; empty is unavailable. | [calculations.py](modules/client_mgr/calculations.py) |
+| Historical VaR / CVaR | `quantile(r, 1-q)` and `mean({r_t : r_t <= VaR_q})` | Inclusive left-tail *return* mean, not the mean of a boolean mask or Basel regulatory ES. | [methods and conventions](docs/methods.md) |
 | EWMA volatility | `var_t = λ var_{t-1} + (1-λ) r_t^2` | `λ = 0.94`. Multi-step forecast is `σ * sqrt(h)`. | [1996 RiskMetrics Technical Document](https://www.msci.com/research-and-insights/paper/1996-riskmetrics-technical-document) |
 
 Additional deterministic methods in the same module include Black-Scholes,
@@ -192,7 +192,7 @@ lives in the Python test suite rather than in the README.
 | [docs/inspection_verification.md](docs/inspection_verification.md) | Independent corpus-bound inspectors and whole-repo guardrail scan |
 | [docs/us_gov_standards.md](docs/us_gov_standards.md) | Mandatory standards baseline |
 | [docs/standards_remediation_plan.md](docs/standards_remediation_plan.md) | Active standards gate and phase plan |
-| [docs/visual_modernization_plan.md](docs/visual_modernization_plan.md) | Globe-first UX roadmap |
+| [docs/visual_modernization_plan.md](docs/visual_modernization_plan.md) | Advisory-first UX and secondary World roadmap |
 | [docs/globe_layout_notes.md](docs/globe_layout_notes.md) | Researched HUD layout applied to the World globe |
 | [docs/osint_globe_phase_2_plan.md](docs/osint_globe_phase_2_plan.md) | Detailed next-phase OSINT/globe execution plan |
 | [docs/osint.md](docs/osint.md) | OSINT workspace and feed notes |
@@ -206,27 +206,31 @@ lives in the Python test suite rather than in the README.
 
 ### Standards And Governance
 
+Reviewed September 9, 2026. [Reference coverage](docs/reference_coverage.md)
+maps every item below to implementation, tests and remaining gaps. These are
+engineering references, not certification or complete regulatory compliance.
+
 - NIST SP 800-218, SSDF v1.1:
   https://csrc.nist.gov/pubs/sp/800/218/final
-- NIST SP 800-53 Rev. 5:
+- NIST SP 800-53 Rev. 5, including catalog release 5.2.0:
   https://csrc.nist.gov/pubs/sp/800/53/r5/upd1/final
-- NIST SP 800-160 Vol. 1 Rev. 1:
-  https://nvlpubs.nist.gov/nistpubs/SpecialPublications/NIST.SP.800-160v1r1.pdf
+- NIST SP 800-160 Vol. 1 Rev. 1, Engineering Trustworthy Secure Systems:
+  https://csrc.nist.gov/pubs/sp/800/160/v1/r1/final
 - NIST AI RMF 1.0:
   https://www.nist.gov/itl/ai-risk-management-framework
 - Revised Section 508 Standards:
   https://www.access-board.gov/ict/
-- MIL-STD-882E:
+- MIL-STD-882E with Change 1 (2023):
   https://quicksearch.dla.mil/qsDocDetails.aspx?ident_number=36027
 
 ### Methods And Risk References
 
-- SEC simple-return example:
-  https://www.sec.gov/Archives/edgar/data/0000895421/000089542108000533/texassteel8kex991.htm
-- Investor.gov Sharpe ratio:
-  https://www.investor.gov/introduction-investing/investing-basics/terms-and-definitions/sharpe-ratio
-- Investor.gov VaR bulletin:
-  https://www.investor.gov/introduction-investing/general-resources/news-alerts/alerts-bulletins/investor-bulletins/understanding-value-risk
+- Fractional price-return implementation (pandas):
+  https://pandas.pydata.org/docs/reference/api/pandas.Series.pct_change.html
+- Sharpe ratio, William F. Sharpe (1994):
+  https://web.stanford.edu/~wfsharpe/art/sr/SR.htm
+- RiskMetrics (1996), historical VaR and EWMA background:
+  https://www.msci.com/research-and-insights/paper/1996-riskmetrics-technical-document
 - U.S. DOJ HHI overview:
   https://www.justice.gov/atr/herfindahl-hirschman-index
 - NIST/SEMATECH CUSUM reference:
@@ -236,9 +240,9 @@ lives in the Python test suite rather than in the README.
 - Permutation entropy reference:
   https://doi.org/10.1103/PhysRevLett.88.174102
 - Hurst exponent reference:
-  https://doi.org/10.1098/rspa.1951.0001
-- Basel expected shortfall background:
-  https://www.bis.org/publ/bcbs265.pdf
+  https://doi.org/10.1061/TACEAT.0006518
+- Basel Framework MAR33, current regulatory ES background (not implemented):
+  https://www.bis.org/committees/bcbs/basel-framework/standard/mar/33/inforce/2023-01-01/published/2020-06-05
 
 ### Data And Feeds
 

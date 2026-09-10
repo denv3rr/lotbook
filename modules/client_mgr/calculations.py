@@ -31,16 +31,16 @@ def compute_core_metrics(
 
     ann_factor = annualization_factor_from_index(returns)
     std_dev = returns.std(ddof=1)
-    vol = std_dev * np.sqrt(ann_factor)
+    vol = std_dev * np.sqrt(ann_factor) if math.isfinite(std_dev) else None
     rf_period = float(risk_free_annual) / ann_factor if ann_factor else 0.0
     sharpe = (
         ((returns.mean() - rf_period) / std_dev) * np.sqrt(ann_factor)
-        if std_dev != 0
+        if math.isfinite(std_dev) and std_dev > 0
         else None
     )
 
     metrics = {
-        "volatility_annual": float(vol),
+        "volatility_annual": float(vol) if vol is not None else None,
         "sharpe": float(sharpe) if sharpe is not None else None,
         "mean_return": float(returns.mean() * ann_factor),
         "risk_free_annual": float(risk_free_annual),
@@ -92,7 +92,12 @@ def calculate_max_drawdown(returns: pd.Series) -> Optional[float]:
 def calculate_var_cvar(
     returns: pd.Series, confidence_level: float
 ) -> Tuple[Optional[float], Optional[float]]:
-    if returns.empty:
+    # Historical period-return quantile / inclusive tail mean, not Basel ES.
+    if (
+        returns.empty
+        or not 0 < confidence_level < 1
+        or not np.isfinite(returns.to_numpy(dtype=float)).all()
+    ):
         return None, None
     var = returns.quantile(1 - confidence_level)
     tail = returns[returns <= var]
@@ -270,7 +275,7 @@ def compute_capm_metrics_from_returns(
         [returns.rename("p"), benchmark_returns.rename("m")],
         axis=1,
     ).dropna()
-    if joined.empty or len(joined) < min_points:
+    if joined.empty or len(joined) < max(2, min_points):
         return {
             "error": "Insufficient return history",
             "beta": None,
@@ -299,10 +304,9 @@ def compute_capm_metrics_from_returns(
         alpha_daily = avg_p - (rf_daily + beta * (avg_m - rf_daily))
         alpha_annual = alpha_daily * ann_factor
 
-    corr = float(np.corrcoef(p, m)[0][1])
-    r_squared = corr * corr
-
     std_p = float(np.std(p, ddof=1))
+    corr = float(np.corrcoef(p, m)[0][1]) if var_m > 0 and std_p > 0 else float("nan")
+    r_squared = corr * corr if math.isfinite(corr) else None
     sharpe = ((avg_p - rf_daily) / std_p * (ann_factor ** 0.5)) if std_p > 0 else None
     vol_annual = std_p * (ann_factor ** 0.5)
 
@@ -375,7 +379,7 @@ def compute_risk_metrics(
     avg_daily = float(returns.mean())
     std_daily = float(returns.std(ddof=1))
 
-    vol_annual = std_daily * (ann_factor ** 0.5)
+    vol_annual = std_daily * (ann_factor ** 0.5) if math.isfinite(std_daily) else None
     mean_annual = avg_daily * ann_factor
 
     sharpe = None

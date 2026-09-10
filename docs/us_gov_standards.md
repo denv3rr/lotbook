@@ -20,18 +20,28 @@ The repo baseline is anchored to these official U.S. government publications:
 
 1. NIST SP 800-218, Secure Software Development Framework (SSDF), Version 1.1
    - https://csrc.nist.gov/pubs/sp/800/218/final
-2. NIST SP 800-53 Rev. 5, Security and Privacy Controls for Information Systems and Organizations
+2. NIST SP 800-53 Rev. 5, Security and Privacy Controls for Information Systems and Organizations, catalog release 5.2.0
    - https://csrc.nist.gov/pubs/sp/800/53/r5/upd1/final
-3. NIST SP 800-160 Volume 1 Rev. 1, Developing Cyber-Resilient Systems: A Systems Security Engineering Approach
-   - https://nvlpubs.nist.gov/nistpubs/SpecialPublications/NIST.SP.800-160v1r1.pdf
+3. NIST SP 800-160 Volume 1 Rev. 1, Engineering Trustworthy Secure Systems
+   - https://csrc.nist.gov/pubs/sp/800/160/v1/r1/final
 4. NIST AI Risk Management Framework (AI RMF 1.0)
    - https://www.nist.gov/itl/ai-risk-management-framework
 5. Revised Section 508 Standards for Information and Communication Technology
    - https://www.access-board.gov/ict/
-6. DoD MIL-STD-882E, Department of Defense Standard Practice: System Safety
+6. DoD MIL-STD-882E with Change 1 (September 27, 2023), Department of Defense Standard Practice: System Safety
    - https://quicksearch.dla.mil/qsDocDetails.aspx?ident_number=36027
 
 ## What This Means In Practice
+
+Source review: September 9, 2026. The [reference register](reference_register.json)
+and [coverage record](reference_coverage.md) distinguish partial implementation
+from compliance. SSDF 1.1 remains the published final baseline; NIST lists
+SSDF 1.2 as a draft. AI RMF 1.0 remains the baseline while revision is in
+progress. Do not silently treat drafts or reference links as adopted controls.
+SP 800-53 release 5.2.0 adds/updates development, integrity and software-update
+controls; organizational tailoring and evidence remain release work.
+Revised Section 508 incorporates WCAG 2.0 A/AA with applicable exceptions;
+newer WCAG targets do not by themselves establish Section 508 conformance.
 
 These source documents drive the repo rules below:
 

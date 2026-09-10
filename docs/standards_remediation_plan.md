@@ -1,5 +1,12 @@
 # Standards Remediation Plan
 
+September 9 reference checkpoint: all README standards and methods references
+are versioned and mapped in `reference_register.json` / `reference_coverage.md`.
+This corrects source/title drift and bounded undefined-statistic defects; it
+does not close the repo-wide standards gate. Individual authorization, model
+review, operational acceptance, accessibility conformance and remaining
+descriptive-analytics coverage/availability gaps stay open.
+
 September 2026 bounded progress: advisory route acceptance now uses actual
 isolated SQLite writes; `playwright.advisory.config.ts` launches the real
 foreground launcher with disposable data for client/deal/task and close-app
