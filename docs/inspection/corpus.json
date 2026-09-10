@@ -10,6 +10,8 @@
     "docs/architecture.md",
     "docs/data_integrity.md",
     "docs/methods.md",
+    "docs/reference_coverage.md",
+    "docs/reference_register.json",
     "docs/ai_assistant.md",
     "docs/assistant_usage.md",
     "docs/security_verification.md",

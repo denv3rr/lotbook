@@ -6,17 +6,25 @@ the September 2026 portfolio-history/undefined-metric corrections.
 
 This is the formula sheet for shared analytics in
 `modules/client_mgr/calculations.py` and the Markov snapshot in
-`modules/client_mgr/regime.py`. Empty or insufficient inputs return an
-unavailable state. They do not invent zeros, betas of 1.0, or Hurst values of
-0.5.
+`modules/client_mgr/regime.py`. Core risk fields and Hurst use unavailable
+states for undefined values, not betas of 1.0 or Hurst values of 0.5. Some
+legacy descriptive entropy paths still return zero for insufficient inputs;
+that is an open limitation, not evidence of low uncertainty. See
+[reference coverage](reference_coverage.md) for source review and remaining gaps.
 
 ## Returns and annualization
 
 - Inputs are simple period returns `r_t`.
+- Price return is `P_t / P_(t-1) - 1`, implemented with pandas fractional
+  `pct_change`; it is not a percent until multiplied by 100. Current-holdings
+  reconstruction is not cash-flow-adjusted historical client performance.
 - Annualization `A` is `seconds_per_year / mean(positive timestamp deltas)`
   when a DatetimeIndex is present, otherwise `252`.
 - Mean annual return is `mean(r) * A`.
 - Annualized volatility is `std(r, ddof=1) * sqrt(A)`.
+- Sample volatility requires at least two observations. Calendar-spacing
+  annualization is not an exchange trading calendar; square-root-time scaling
+  does not adjust for serial correlation. Arithmetic annual mean is not CAGR.
 
 ## Sharpe and Sortino
 
@@ -26,7 +34,8 @@ unavailable state. They do not invent zeros, betas of 1.0, or Hurst values of
   `sqrt(mean(min(r - r_f/A, 0)^2))`, not the standard deviation of the
   negative subset.
 
-References: [Investor.gov Sharpe](https://www.investor.gov/introduction-investing/investing-basics/terms-and-definitions/sharpe-ratio).
+References: [Sharpe 1994](https://web.stanford.edu/~wfsharpe/art/sr/SR.htm),
+[pandas fractional changes](https://pandas.pydata.org/docs/reference/api/pandas.Series.pct_change.html).
 
 ## Beta, alpha, tracking
 
@@ -40,12 +49,22 @@ Reference: [Sharpe 1964](https://doi.org/10.2307/2977928).
 
 ## Drawdown and tails
 
-- Max drawdown is `min((V_t - peak_t) / peak_t)` on `V = cumprod(1+r)`.
+- Max drawdown is `min((V_t - peak_t) / peak_t)` on `V = cumprod(1+r)`,
+  with `peak_t = max(1, V_1,...,V_t)` to include the opening capital.
 - Historical VaR is the left-tail return quantile `quantile(r, 1-q)`.
-- CVaR is the mean of returns at or below that quantile.
+- CVaR is the inclusive mean of returns at or below that quantile, **not**
+  `mean(r <= quantile)`, which would average booleans. Pandas uses linear
+  quantile interpolation; all ties at the cutoff count in the tail mean.
+- Require `0 < q < 1` and finite observations; invalid inputs are unavailable.
 - These are return units, not positive loss amounts.
 
-Reference: [Investor.gov VaR](https://www.investor.gov/introduction-investing/general-resources/news-alerts/alerts-bulletins/investor-bulletins/understanding-value-risk).
+Background: [RiskMetrics 1996](https://www.msci.com/research-and-insights/paper/1996-riskmetrics-technical-document).
+The inclusive empirical tail convention is not a fractional-tail-weighted ES
+estimator. Clear's 95%/99% period-return summaries do **not** implement
+[Basel MAR33](https://www.bis.org/committees/bcbs/basel-framework/standard/mar/33/inforce/2023-01-01/published/2020-06-05):
+that framework requires 97.5% regulatory ES, stress calibration, liquidity
+horizons, model approval and other controls. Do not use this output for capital
+requirements or imply Basel compliance.
 
 ## EWMA
 
@@ -59,11 +78,16 @@ Reference: [1996 RiskMetrics Technical Document](https://www.msci.com/research-a
 ## Hurst, entropy, CUSUM
 
 - Hurst is the R/S log-log slope. Short series return unavailable, not 0.5.
-  There is no calibration offset.
+  There is no calibration offset. This implementation clips the estimated
+  slope to [0,1], uses disjoint blocks and population standard deviation;
+  it is a descriptive estimator, not proof of predictability.
 - Shannon and permutation entropy are descriptive complexity measures.
-- CUSUM change points are a two-sided classical detector, not a forecast.
+- CUSUM is two-sided, with `k=0.5*s` and `h=threshold*s` (default threshold 5),
+  resetting after a signal. Its mean and sample standard deviation use the
+  entire input window, so this is retrospective detection, not online trading
+  or a calibrated false-alarm probability.
 
-References: [Hurst 1951](https://doi.org/10.1098/rspa.1951.0001),
+References: [Hurst 1951](https://doi.org/10.1061/TACEAT.0006518),
 [permutation entropy](https://doi.org/10.1103/PhysRevLett.88.174102),
 [NIST CUSUM](https://www.itl.nist.gov/div898/handbook/pmc/section3/pmc323.htm).
 
@@ -77,12 +101,18 @@ References: [Hurst 1951](https://doi.org/10.1098/rspa.1951.0001),
 
 ## Tax estimates
 
-- Unrealized tax uses lot quantity, lot basis, and a live price.
+- Unrealized tax uses lot quantity, lot basis, and an available price snapshot;
+  the application does not establish a licensed live quote stream.
 - Unknown timestamps are excluded from term-specific tax and remain in
   total unrealized gain.
 - There is no FIFO/LIFO realization or wash-sale engine.
 
 ## HHI
 
-- Diagnostics HHI is the sum of squared portfolio weights.
+- Diagnostics HHI is the sum of squared **sector** shares of priced securities,
+  using fractional weights (0–1), not DOJ's percentage-share 0–10,000 scale.
+  It excludes manual assets and does not establish complete portfolio coverage
+  when quotes are missing. Zero with no priced assets is a legacy sentinel,
+  not evidence of diversification. DOJ merger thresholds do not classify a
+  client's investment suitability or portfolio risk.
   Reference: [DOJ HHI](https://www.justice.gov/atr/herfindahl-hirschman-index).
