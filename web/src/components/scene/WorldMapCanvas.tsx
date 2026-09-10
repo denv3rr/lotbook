@@ -4,7 +4,28 @@ import type { Map as MapInstance, GeoJSONSource, StyleSpecification } from "mapl
 import type { FeatureCollection } from "geojson";
 import { loadMapLibre } from "../../lib/maplibre";
 import type { GlobeGeographyData } from "../../lib/globeGeography";
-import { BLUE_MARBLE_TILES, DETAIL_MIN_ZOOM, ESRI_WORLD_IMAGERY_TILES, MAX_MAP_ZOOM, OSM_RASTER_TILES, areaCollection, centeredMercatorZoom, coordinateBounds, isImageryError, normalizeLongitude, observationCollection, sceneCameraTarget, validateBounds, type MapObservation, type ResearchArea, type SceneCameraDefaults, type SceneBounds } from "../../lib/worldMap";
+import {
+  BLUE_MARBLE_TILES,
+  ESRI_WORLD_IMAGERY_TILES,
+  GLOBE_FLAT_SATELLITE_ZOOM,
+  MAX_MAP_ZOOM,
+  OSM_RASTER_TILES,
+  areaCollection,
+  basemapSourceLabel,
+  centeredMercatorZoom,
+  coordinateBounds,
+  isImageryError,
+  normalizeLongitude,
+  observationCollection,
+  projectionForZoom,
+  sceneCameraTarget,
+  validateBounds,
+  type BasemapMode,
+  type MapObservation,
+  type ResearchArea,
+  type SceneCameraDefaults,
+  type SceneBounds,
+} from "../../lib/worldMap";
 import { useResearchAreas } from "../../lib/useResearchAreas";
 
 type Props = {
@@ -29,15 +50,23 @@ const STYLE: StyleSpecification = {
     land: { type: "geojson", data: EMPTY, attribution: 'Context: <a href="https://www.naturalearthdata.com/about/terms-of-use/">Natural Earth</a> · de facto boundaries' },
     borders: { type: "geojson", data: EMPTY },
     imagery: { type: "raster", tiles: [BLUE_MARBLE_TILES], tileSize: 256, maxzoom: 8, attribution: 'Historical Blue Marble composite: <a href="https://www.earthdata.nasa.gov/data/tools/gibs">NASA EOSDIS GIBS</a>' },
-    detail: { type: "raster", tiles: [ESRI_WORLD_IMAGERY_TILES], tileSize: 256, minzoom: DETAIL_MIN_ZOOM, maxzoom: MAX_MAP_ZOOM, attribution: 'Closer zoom: <a href="https://www.esri.com">Esri World Imagery</a> (Esri, Maxar, Earthstar Geographics, and the GIS User Community). Not a live satellite stream. OSM fallback: &copy; OpenStreetMap contributors' },
+    detail: {
+      type: "raster",
+      tiles: [ESRI_WORLD_IMAGERY_TILES, "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"],
+      tileSize: 256,
+      maxzoom: MAX_MAP_ZOOM,
+      attribution: '<a href="https://www.esri.com">Powered by Esri</a> — Esri, Maxar, Earthstar Geographics, and the GIS User Community. Not a live satellite stream.',
+    },
+    street: { type: "raster", tiles: [OSM_RASTER_TILES], tileSize: 256, maxzoom: MAX_MAP_ZOOM, attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors' },
     observations: { type: "geojson", data: EMPTY },
     areas: { type: "geojson", data: EMPTY },
   },
   layers: [
     { id: "ocean", type: "background", paint: { "background-color": "#102838" } },
     { id: "land", type: "fill", source: "land", paint: { "fill-color": "#244842" } },
-    { id: "imagery", type: "raster", source: "imagery", paint: { "raster-fade-duration": 0, "raster-opacity": ["interpolate", ["linear"], ["zoom"], 7.5, 1, 9, 0] } },
-    { id: "detail", type: "raster", source: "detail", paint: { "raster-fade-duration": 0, "raster-opacity": ["interpolate", ["linear"], ["zoom"], 7.5, 0, 9, 1] } },
+    { id: "imagery", type: "raster", source: "imagery", paint: { "raster-fade-duration": 0 } },
+    { id: "detail", type: "raster", source: "detail", paint: { "raster-fade-duration": 0 } },
+    { id: "street", type: "raster", source: "street", layout: { visibility: "none" }, paint: { "raster-fade-duration": 0 } },
     { id: "borders", type: "line", source: "borders", paint: { "line-color": "#dfecd9", "line-opacity": 0.55, "line-width": 0.75 } },
     { id: "areas-fill", type: "fill", source: "areas", paint: { "fill-color": "#ffd38a", "fill-opacity": 0.12 } },
     { id: "areas-edge", type: "line", source: "areas", paint: { "line-color": "#ffd38a", "line-width": 2, "line-dasharray": [3, 2] } },
@@ -46,17 +75,29 @@ const STYLE: StyleSpecification = {
   ],
 };
 
+function applyBasemap(map: MapInstance, show: boolean, mode: BasemapMode) {
+  map.setLayoutProperty("imagery", "visibility", show && mode === "satellite" ? "visible" : "none");
+  map.setLayoutProperty("detail", "visibility", show && mode === "satellite" ? "visible" : "none");
+  map.setLayoutProperty("street", "visibility", show && mode === "street" ? "visible" : "none");
+}
+
 export function WorldMapCanvas({ geography, observations, focus, cameraPreset, cameraDefaults, sceneBounds, sceneKey, cameraRevision, reducedMotion, onSelect, toolsHost }: Props) {
   const container = useRef<HTMLDivElement>(null);
   const mapRef = useRef<MapInstance | null>(null);
   const selectRef = useRef(onSelect);
   selectRef.current = onSelect;
+  const projectionPref = useRef<"globe" | "mercator">("globe");
+  const basemapRef = useRef<BasemapMode>("satellite");
   const [ready, setReady] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [tileError, setTileError] = useState(false);
   const [imagery, setImagery] = useState(true);
+  const [basemap, setBasemap] = useState<BasemapMode>("satellite");
   const [projection, setProjection] = useState<"globe" | "mercator">("globe");
   const [coordinates, setCoordinates] = useState("0.000°, 0.000°");
+  const [zoomLabel, setZoomLabel] = useState("1.2");
+  const [sourceLabel, setSourceLabel] = useState(basemapSourceLabel(1.2, "satellite"));
+  const [flatSat, setFlatSat] = useState(false);
   const [query, setQuery] = useState("");
   const [areaName, setAreaName] = useState("");
   const vault = useResearchAreas();
@@ -66,19 +107,29 @@ export function WorldMapCanvas({ geography, observations, focus, cameraPreset, c
   const [areaError, setAreaError] = useState<string | null>(null);
   const [toolsOpen, setToolsOpen] = useState(false);
   const framedScene = useRef<string | null>(null);
+
+  const reportView = useCallback((map: MapInstance, mode: BasemapMode) => {
+    const center = map.getCenter();
+    const zoom = map.getZoom();
+    setCoordinates(`${center.lat.toFixed(3)}°, ${normalizeLongitude(center.lng).toFixed(3)}°`);
+    setZoomLabel(zoom.toFixed(1));
+    setSourceLabel(basemapSourceLabel(zoom, mode));
+    setFlatSat(projectionPref.current === "globe" && zoom >= GLOBE_FLAT_SATELLITE_ZOOM);
+    const next = projectionForZoom(projectionPref.current, zoom);
+    if (map.getProjection()?.type !== next) map.setProjection({ type: next });
+  }, []);
+
   const resetOverview = useCallback(() => {
     const map = mapRef.current;
     if (!map) return;
     const bounds = [sceneBounds?.min_lon, sceneBounds?.min_lat, sceneBounds?.max_lon, sceneBounds?.max_lat];
-    // API distance describes the retired sphere camera, not a MapLibre zoom.
-    // Use geographic bounds for scale, with the API target taking precedence.
     const fitted = validateBounds(bounds) ? map.cameraForBounds([[bounds[0], bounds[1]], [bounds[2] < bounds[0] ? bounds[2] + 360 : bounds[2], bounds[3]]], { padding: Math.min(80, map.getContainer().clientWidth / 5), maxZoom: 6 }) : undefined;
     const pitch = cameraDefaults?.pitch;
     const bearing = cameraDefaults?.bearing;
     const target = sceneCameraTarget(cameraDefaults);
-    const minimumZoom = projection === "mercator" && target ? centeredMercatorZoom(target, map.getContainer().clientWidth, map.getContainer().clientHeight) : 0;
+    const minimumZoom = projectionPref.current === "mercator" && target ? centeredMercatorZoom(target, map.getContainer().clientWidth, map.getContainer().clientHeight) : 0;
     map.easeTo({ center: target ?? fitted?.center ?? [0, 20], zoom: Math.max(fitted?.zoom ?? 1.2, minimumZoom), pitch: typeof pitch === "number" && Number.isFinite(pitch) ? Math.max(0, Math.min(60, pitch)) : 0, bearing: typeof bearing === "number" && Number.isFinite(bearing) ? bearing : 0, duration: reducedMotion ? 0 : 600 });
-  }, [cameraDefaults?.target_lat, cameraDefaults?.target_lon, cameraDefaults?.pitch, cameraDefaults?.bearing, sceneBounds?.min_lon, sceneBounds?.min_lat, sceneBounds?.max_lon, sceneBounds?.max_lat, reducedMotion, projection]);
+  }, [cameraDefaults?.target_lat, cameraDefaults?.target_lon, cameraDefaults?.pitch, cameraDefaults?.bearing, sceneBounds?.min_lon, sceneBounds?.min_lat, sceneBounds?.max_lon, sceneBounds?.max_lat, reducedMotion]);
 
   useEffect(() => {
     let cancelled = false;
@@ -86,41 +137,39 @@ export function WorldMapCanvas({ geography, observations, focus, cameraPreset, c
     let resize: ResizeObserver | null = null;
     loadMapLibre().then(lib => {
       if (cancelled || !container.current) return;
-      const instance: MapInstance = new lib.Map({ container: container.current, style: STYLE, center: sceneCameraTarget(cameraDefaults) ?? [0, 20], zoom: 1.2, maxZoom: MAX_MAP_ZOOM, renderWorldCopies: false, attributionControl: false, canvasContextAttributes: { antialias: true } });
+      const instance: MapInstance = new lib.Map({
+        container: container.current,
+        style: STYLE,
+        center: sceneCameraTarget(cameraDefaults) ?? [0, 20],
+        zoom: 1.2,
+        maxZoom: MAX_MAP_ZOOM,
+        renderWorldCopies: false,
+        attributionControl: false,
+        boxZoom: true,
+        doubleClickZoom: true,
+        canvasContextAttributes: { antialias: true },
+      });
       map = instance;
       mapRef.current = instance;
       map.addControl(new lib.AttributionControl({ compact: false }), "bottom-right");
       map.addControl(new lib.NavigationControl({ visualizePitch: true }), "bottom-right");
       map.addControl(new lib.ScaleControl({ unit: "metric" }), "bottom-left");
-      // Controls and local geometry need a ready style, not every remote tile.
-      // Tile availability is reported independently below.
       map.on("style.load", () => {
         if (cancelled) return;
         setReady(true);
-        const center = instance.getCenter();
-        setCoordinates(`${center.lat.toFixed(3)}°, ${normalizeLongitude(center.lng).toFixed(3)}°`);
+        reportView(instance, "satellite");
       });
-      let detailFallback = false;
       map.on("error", event => {
         if (cancelled) return;
-        if (isImageryError(event as { sourceId?: string })) {
-          setTileError(true);
-          const sourceId = (event as { sourceId?: string }).sourceId;
-          const live = map;
-          if (sourceId === "detail" && !detailFallback && live?.getSource("detail")) {
-            detailFallback = true;
-            if (live.getLayer("detail")) live.removeLayer("detail");
-            live.removeSource("detail");
-            live.addSource("detail", { type: "raster", tiles: [OSM_RASTER_TILES], tileSize: 256, minzoom: DETAIL_MIN_ZOOM, maxzoom: MAX_MAP_ZOOM, attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors' });
-            live.addLayer({ id: "detail", type: "raster", source: "detail", paint: { "raster-fade-duration": 0, "raster-opacity": ["interpolate", ["linear"], ["zoom"], 7.5, 0, 9, 1] } }, "borders");
-          }
-        } else setError(event.error?.message || "Map rendering unavailable.");
+        if (isImageryError(event as { sourceId?: string })) setTileError(true);
+        else setError(event.error?.message || "Map rendering unavailable.");
       });
-      map.on("moveend", () => { const center = map!.getCenter(); setCoordinates(`${center.lat.toFixed(3)}°, ${normalizeLongitude(center.lng).toFixed(3)}°`); });
+      map.on("moveend", () => { if (map) reportView(map, basemapRef.current); });
+      map.on("zoomend", () => { if (map) reportView(map, basemapRef.current); });
       map.on("click", "points", event => { const id = event.features?.[0]?.properties?.observationId; if (typeof id === "string") selectRef.current(id); });
       map.on("mouseenter", "points", () => { map!.getCanvas().style.cursor = "pointer"; });
       map.on("mouseleave", "points", () => { map!.getCanvas().style.cursor = ""; });
-      map.getCanvas().setAttribute("aria-label", "World map. Arrow keys pan; plus and minus zoom. Use Map tools to search and select research areas.");
+      map.getCanvas().setAttribute("aria-label", "World map. Arrow keys pan; plus and minus zoom; shift-drag boxes a region. Use Map tools to search and select research areas.");
       resize = new ResizeObserver(() => map?.resize());
       resize.observe(container.current);
     }).catch(failure => { if (!cancelled) setError(failure instanceof Error ? failure.message : "Map unavailable."); });
@@ -136,11 +185,15 @@ export function WorldMapCanvas({ geography, observations, focus, cameraPreset, c
   useEffect(() => { if (ready) (mapRef.current?.getSource("areas") as GeoJSONSource)?.setData(areaCollection(areas)); }, [ready, areas]);
   useEffect(() => {
     if (!ready || !mapRef.current) return;
-    const visibility = imagery ? "visible" : "none";
-    mapRef.current.setLayoutProperty("imagery", "visibility", visibility);
-    if (mapRef.current.getLayer("detail")) mapRef.current.setLayoutProperty("detail", "visibility", visibility);
-  }, [ready, imagery]);
-  useEffect(() => { if (ready) mapRef.current?.setProjection({ type: projection }); }, [ready, projection]);
+    basemapRef.current = basemap;
+    applyBasemap(mapRef.current, imagery, basemap);
+    reportView(mapRef.current, basemap);
+  }, [ready, imagery, basemap, reportView]);
+  useEffect(() => {
+    projectionPref.current = projection;
+    if (!ready || !mapRef.current) return;
+    mapRef.current.setProjection({ type: projectionForZoom(projection, mapRef.current.getZoom()) });
+  }, [ready, projection]);
   useEffect(() => {
     if (!ready) return;
     const firstFrame = sceneKey !== null && framedScene.current !== sceneKey;
@@ -154,7 +207,7 @@ export function WorldMapCanvas({ geography, observations, focus, cameraPreset, c
   const countries = useMemo(() => !query.trim() ? [] : (geography?.country_features || []).filter(country => country.name.toLowerCase().includes(query.trim().toLowerCase())).slice(0, 8), [query, geography]);
   function fit(bounds: ResearchArea["bounds"]) {
     const [west, south, east, north] = bounds;
-    mapRef.current?.fitBounds([[west, south], [east < west ? east + 360 : east, north]], { padding: 100, maxZoom: 8, duration: reducedMotion ? 0 : 600 });
+    mapRef.current?.fitBounds([[west, south], [east < west ? east + 360 : east, north]], { padding: 100, maxZoom: 6, duration: reducedMotion ? 0 : 600 });
   }
   async function saveArea() {
     if (!mapRef.current || !areaName.trim() || vault.state !== "unlocked" || vault.busy) return;
@@ -184,15 +237,16 @@ export function WorldMapCanvas({ geography, observations, focus, cameraPreset, c
       <button type="button" className="globe-action-button" aria-expanded={toolsOpen} onClick={() => setToolsOpen(value => !value)}>Map tools</button>
       {toolsOpen && <div className="world-map-tools__body">
         <label>Projection<select aria-label="Map projection" value={projection} onChange={event => setProjection(event.target.value as typeof projection)}><option value="globe">Globe</option><option value="mercator">Flat map</option></select></label>
+        <label>Basemap<select aria-label="Basemap" value={basemap} onChange={event => setBasemap(event.target.value as BasemapMode)}><option value="satellite">Satellite</option><option value="street">Street map</option></select></label>
         <button type="button" disabled={!ready} onClick={resetOverview}>Reset map view</button>
-        <label><input type="checkbox" checked={imagery} onChange={event => setImagery(event.target.checked)} /> Satellite and street basemap</label>
-        <p>Wide zoom uses NASA Blue Marble (historical composite). Closer zoom uses keyless Esri World Imagery, then OpenStreetMap if Esri is unreachable — the same keyless path as the reviewed God&apos;s Eye View reference. This is not a live satellite stream. Raster coverage ends at ±85.05°. Borders are de facto context, not legal boundaries.</p>
+        <label><input type="checkbox" checked={imagery} onChange={event => setImagery(event.target.checked)} /> Show satellite or street imagery</label>
+        <p>Satellite is Esri World Imagery at every zoom, with NASA Blue Marble underneath as historical context. Street map is OpenStreetMap and is only used when you select it. Missing tiles stay satellite (overzoomed) rather than switching to a street map. This is not a live stream. Raster coverage ends at ±85.05°. Borders are de facto context, not legal boundaries.</p>
         <label>Find country<input value={query} onChange={event => setQuery(event.target.value)} placeholder="Country name" /></label>
         {countries.map(country => <button type="button" key={country.id} onClick={() => {
           fit(coordinateBounds(country.rings.flat()));
         }}>{country.name}</button>)}
         {query.trim() && !countries.length && <p>No matching country in the reviewed context.</p>}
-        <p>Areas are operator-defined viewport bounds, not event extents. Saved encrypted only in this browser; not included in database backups.</p>
+        <p>Country search fits the country, then you zoom. Shift-drag boxes a region. Areas are operator-defined viewport bounds, not event extents. Saved encrypted only in this browser; not included in database backups.</p>
         {vault.state === "legacy" && <p role="alert">Existing areas are unencrypted. Encrypt them with a new passphrase to continue. Failed migration leaves the original data unchanged.</p>}
         {vault.state !== "unlocked" && vault.state !== "invalid" && <>
           <label>Research-area passphrase<input type="password" autoComplete="off" value={passphrase} maxLength={128} onChange={event => setPassphrase(event.target.value)} /></label>
@@ -209,9 +263,10 @@ export function WorldMapCanvas({ geography, observations, focus, cameraPreset, c
         {(areaError || vault.error) && <p role="alert">{areaError || vault.error}</p>}
       </div>}
       <output aria-label="Map center coordinates">{coordinates}</output>
+      <output aria-label="Map zoom and imagery source">z{zoomLabel} · {sourceLabel}{flatSat ? " · flat satellite above z12" : ""}</output>
       {(!ready && !error) && <p role="status">Loading map engine…</p>}
       {error && <p role="alert">Map unavailable: {error}. The source-backed Browse list remains available.</p>}
-      {tileError && imagery && <p role="status">Some imagery tiles are unavailable. Local vector context remains available when loaded; satellite coverage may be incomplete.</p>}
+      {tileError && imagery && <p role="status">Some imagery tiles are unavailable. Remaining satellite coverage is kept; the view is not switched to a street map.</p>}
     </section>, toolsHost)}
   </>;
 }

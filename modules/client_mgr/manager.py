@@ -39,7 +39,7 @@ from utils.report_synth import ReportSynthesizer, build_report_context, build_ai
 
 # --- Configuration Constants ---
 HISTORY_PERIOD = {"1W": "5d", "1M": "1mo", "3M": "3mo", "6M": "6mo", "1Y": "1y"}
-HISTORY_INTERVAL_MAP = {"1W": "60m", "1M": "1d", "3M": "1d", "6M": "1d", "1Y": "1d"}
+HISTORY_INTERVAL_MAP = {"1W": "1d", "1M": "1d", "3M": "1d", "6M": "1d", "1Y": "1d"}
 INTERVAL_POINTS = {"1W": 40, "1M": 22, "3M": 66, "6M": 132, "1Y": 252}
 CAPM_PERIOD = {"1W": "5d", "1M": "1mo", "3M": "3mo", "6M": "6mo", "1Y": "1y"}
 CAPM_PERIOD_FALLBACK = {"1W": "1mo", "1M": "6mo", "3M": "1y", "6M": "2y", "1Y": "5y"}

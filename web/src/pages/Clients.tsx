@@ -246,7 +246,8 @@ export default function Clients() {
   const [regimeOpen, setRegimeOpen] = useState(false);
   const [patternOpen, setPatternOpen] = useState(false);
   const [holdingsOpen, setHoldingsOpen] = useState(true);
-  const [lotsOpen, setLotsOpen] = useState(false);
+  const [lotsOpen, setLotsOpen] = useState(true);
+  const scopeKeyRef = useRef("");
   const [diagnosticsOpen, setDiagnosticsOpen] = useState(false);
   const [manualOpen, setManualOpen] = useState(false);
   const [dashboardEpoch, setDashboardEpoch] = useState(0);
@@ -337,19 +338,25 @@ export default function Clients() {
   useEffect(() => {
     const controller = new AbortController();
     setDashboardError(null);
-    setDashboardLoading(Boolean(selectedId));
-    if (!selectedId) return;
+    if (!selectedId) {
+      setDashboard(null);
+      setDashboardLoading(false);
+      return;
+    }
     const path =
       selectedAccount === "portfolio"
         ? `/api/clients/${encodeURIComponent(selectedId)}/dashboard?interval=${encodeURIComponent(interval)}`
         : `/api/clients/${encodeURIComponent(selectedId)}/accounts/${encodeURIComponent(
             selectedAccount
           )}/dashboard?interval=${encodeURIComponent(interval)}`;
-    if (dashboardPathRef.current !== path) {
+    const scopeKey = `${selectedId}:${selectedAccount}`;
+    if (scopeKeyRef.current !== scopeKey) {
       setDashboard(null);
-      dashboardPathRef.current = path;
+      scopeKeyRef.current = scopeKey;
     }
-    apiGet<DashboardPayload>(path, 20000, controller.signal)
+    dashboardPathRef.current = path;
+    setDashboardLoading(true);
+    apiGet<DashboardPayload>(path, 15000, controller.signal)
       .then((payload) => {
         if (controller.signal.aborted) return;
         setDashboard(payload);
@@ -357,7 +364,6 @@ export default function Clients() {
       })
       .catch((err) => {
         if (controller.signal.aborted) return;
-        setDashboard(null);
         setDashboardError(err instanceof Error ? err.message : "Dashboard failed.");
       })
       .finally(() => {
@@ -368,7 +374,6 @@ export default function Clients() {
 
   useEffect(() => {
     const controller = new AbortController();
-    setPatterns(null);
     setPatternsError(null);
     if (!selectedId || !patternOpen) return;
     const path =
@@ -1172,10 +1177,10 @@ export default function Clients() {
                 <KpiCard label="Holdings" value={`${summary.holdings}`} tone="text-slate-100" />
               </div>
               <div className="rounded-2xl border border-slate-700 bg-slate-950/50 p-6 text-sm text-slate-100">
-                <p className="text-slate-100 font-medium">Select a client to load analytics.</p>
+                <p className="text-slate-100 font-medium">Select a client to edit records and review snapshots.</p>
                 <p className="mt-2 text-slate-300">
-                  Choose a profile from the client list to review its portfolio value, risk, holdings,
-                  and advanced analysis.
+                  Choose a name on the left. Then use Edit client, Add account, and Edit holdings. Market
+                  prices are a snapshot and do not change lots.
                 </p>
               </div>
             </div>
@@ -1228,14 +1233,15 @@ export default function Clients() {
                     ))}
                   </div>
                 ) : null}
-                <p className="mt-2" role="status">{dashboardLoading ? "Loading market snapshot…" : dashboard ? `${dashboard.market_snapshot?.label || "Snapshot data; not a live quote stream."}${dashboard.market_snapshot?.cache ? ` Cache: ${dashboard.market_snapshot.cache}.` : ""}` : "Market snapshot unavailable."}</p>
+                <p className="mt-2" role="status">{dashboardLoading ? `Updating ${interval} market snapshot… Previous figures stay on screen until the new window arrives.` : dashboard ? `${dashboard.market_snapshot?.label || "Snapshot data; not a live quote stream."}${dashboard.market_snapshot?.cache ? ` Cache: ${dashboard.market_snapshot.cache}.` : ""}` : "Market snapshot unavailable."}</p>
                 <button type="button" disabled={dashboardLoading} onClick={() => setDashboardEpoch(value => value + 1)} className="mt-2 rounded-full border border-slate-700 px-3 py-1 disabled:opacity-50">
                   {dashboardLoading ? "Refreshing…" : "Refresh snapshot"}
                 </button>
               </div>
-              <details className="portfolio-manage">
-                <summary>Manage client and accounts</summary>
-                <div className="mt-3 flex flex-wrap gap-2">
+              <div className="portfolio-context-group">
+                <p className="portfolio-context-label">Edit records</p>
+                <p className="mt-1 text-[11px] text-slate-400">Change the client, add an account, or edit lots on a selected account.</p>
+                <div className="mt-2 flex flex-wrap gap-2">
                   <button
                     type="button"
                     onClick={() => {
@@ -1243,9 +1249,9 @@ export default function Clients() {
                       setAccountFormOpen(false);
                       setFormError(null);
                     }}
-                    className="rounded-full border border-slate-700 px-3 py-1 text-[11px] text-slate-100 hover:text-green-500"
+                    className="rounded-full border border-emerald-400/60 px-3 py-1 text-[11px] text-emerald-200"
                   >
-                    Edit Client
+                    Edit client
                   </button>
                   <button
                     type="button"
@@ -1255,9 +1261,9 @@ export default function Clients() {
                       resetAccountForm();
                       setFormError(null);
                     }}
-                    className="rounded-full border border-slate-700 px-3 py-1 text-[11px] text-slate-100 hover:text-green-500"
+                    className="rounded-full border border-emerald-400/60 px-3 py-1 text-[11px] text-emerald-200"
                   >
-                    Add Account
+                    Add account
                   </button>
                   {selectedAccount !== "portfolio" ? (
                     <button
@@ -1268,20 +1274,22 @@ export default function Clients() {
                         setFormMode(null);
                         setFormError(null);
                       }}
-                      className="rounded-full border border-slate-700 px-3 py-1 text-[11px] text-slate-100 hover:text-green-500"
+                      className="rounded-full border border-emerald-400/60 px-3 py-1 text-[11px] text-emerald-200"
                     >
-                      Edit Account
+                      Edit this account
                     </button>
-                  ) : null}
+                  ) : (
+                    <p className="text-[11px] text-slate-400">Choose an account in Portfolio scope to edit holdings.</p>
+                  )}
                   <button
                     type="button"
                     onClick={() => setSelectedId(null)}
-                    className="rounded-full border border-slate-700 px-3 py-1 text-[11px] text-slate-100 hover:text-green-500"
+                    className="rounded-full border border-slate-700 px-3 py-1 text-[11px] text-slate-100"
                   >
-                    Back to overview
+                    Back to client list
                   </button>
                 </div>
-              </details>
+              </div>
             </div>
           )}
 
@@ -1351,6 +1359,10 @@ export default function Clients() {
                           <span>Tax Keys: {account.taxKeys}</span>
                           <span className="col-span-2">Tags: {account.tags}</span>
                         </div>
+                        <div className="mt-2 flex flex-wrap gap-2">
+                          <button type="button" className="rounded-full border border-emerald-400/60 px-3 py-1 text-[11px] text-emerald-200" onClick={() => { setSelectedAccount(account.id); setAccountEditOpen(true); setFormMode(null); }}>Edit account</button>
+                          <button type="button" className="rounded-full border border-emerald-400/60 px-3 py-1 text-[11px] text-emerald-200" onClick={() => { setSelectedAccount(account.id); setLotsOpen(true); }}>Edit holdings</button>
+                        </div>
                       </div>
                     ))}
                   </div>
@@ -1367,7 +1379,9 @@ export default function Clients() {
                 open={historyOpen}
                 onToggle={() => setHistoryOpen((prev) => !prev)}
               >
-            {dashboard?.history?.length ? (
+            {dashboardLoading && !dashboard?.history?.length ? (
+              <p className="text-xs text-slate-400">Loading {interval} history…</p>
+            ) : dashboard?.history?.length ? (
               <AreaSparkline
                 data={dashboard.history}
                 height={240}
@@ -1407,8 +1421,10 @@ export default function Clients() {
                   ),
                 ]}
               />
-              {dashboard?.risk?.error ? (
-                <p className="text-xs text-amber-300">{dashboard.risk.error}</p>
+              {dashboardLoading && !dashboard?.risk ? (
+                <p className="text-xs text-slate-400">Loading {interval} risk snapshot…</p>
+              ) : dashboard?.risk?.error ? (
+                <p className="text-xs text-amber-300">{dashboard.risk.error}. This applies to the {dashboard.interval} window only; change the history window or wait for the snapshot to finish updating.</p>
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs text-slate-100">
                   {riskMetricRows.map((metric) => (
@@ -1608,29 +1624,8 @@ export default function Clients() {
               </Collapsible>
 
               <Collapsible
-                title="Holdings Snapshot"
-                meta={`${activeHoldings.length} positions`}
-                open={holdingsOpen}
-                onToggle={() => setHoldingsOpen((prev) => !prev)}
-              >
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-              {activeHoldings.map((holding) => (
-                <div key={holding.ticker} className="rounded-xl border border-slate-700 p-4">
-                  <p className="text-slate-100 font-medium">{holding.ticker}</p>
-                  <p className="text-xs text-slate-300">{holding.name || "—"} • {holding.sector || "N/A"}</p>
-                  <div className="mt-2 flex items-center justify-between text-xs text-slate-100">
-                    <span>Qty {holding.quantity.toFixed(2)}</span>
-                    <span>${holding.market_value.toFixed(2)}</span>
-                  </div>
-                </div>
-              ))}
-            </div>
-              </Collapsible>
-
-              {selectedAccount !== "portfolio" ? (
-              <Collapsible
-                title="Holdings book"
-                meta="Lots, cash, and cash-flow events"
+                title="Edit holdings, lots, and cash"
+                meta={selectedAccount === "portfolio" ? "Choose an account" : "Recorded book"}
                 open={lotsOpen}
                 onToggle={() => setLotsOpen((prev) => !prev)}
               >
@@ -1648,10 +1643,30 @@ export default function Clients() {
                 }}
               />
             ) : (
-              <p className="text-xs text-slate-400">Select an account to manage lots and cash.</p>
+              <p className="text-xs text-slate-300">Portfolio view is a combined snapshot. Choose an account in Portfolio scope, or press Edit holdings on an account card, to add lots, set cash, and record buys and sells.</p>
             )}
               </Collapsible>
-              ) : null}
+
+              <Collapsible
+                title="Market prices (snapshot)"
+                meta={`${activeHoldings.length} priced positions`}
+                open={holdingsOpen}
+                onToggle={() => setHoldingsOpen((prev) => !prev)}
+              >
+            <p className="mb-3 text-xs text-slate-400">These prices do not change recorded quantities. Edit lots in the section above.</p>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+              {activeHoldings.map((holding) => (
+                <div key={holding.ticker} className="rounded-xl border border-slate-700 p-4">
+                  <p className="text-slate-100 font-medium">{holding.ticker}</p>
+                  <p className="text-xs text-slate-300">{holding.name || "—"} • {holding.sector || "N/A"}</p>
+                  <div className="mt-2 flex items-center justify-between text-xs text-slate-100">
+                    <span>Qty {holding.quantity.toFixed(2)}</span>
+                    <span>${holding.market_value.toFixed(2)}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+              </Collapsible>
 
               <Collapsible
                 title="Diagnostics"

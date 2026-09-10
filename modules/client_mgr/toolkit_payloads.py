@@ -8,7 +8,7 @@ from modules.client_mgr.regime import RegimeModels
 
 
 TOOLKIT_PERIOD = {"1W": "1mo", "1M": "6mo", "3M": "1y", "6M": "2y", "1Y": "5y"}
-TOOLKIT_INTERVAL = {"1W": "60m", "1M": "1d", "3M": "1d", "6M": "1d", "1Y": "1d"}
+TOOLKIT_INTERVAL = {"1W": "1d", "1M": "1d", "3M": "1d", "6M": "1d", "1Y": "1d"}
 
 
 class ToolkitPayloadsMixin:
