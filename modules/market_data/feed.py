@@ -1197,13 +1197,13 @@ class MarketFeed:
         include_commercial = bool(tracker_conf.get("include_commercial_flights", False))
         include_private = bool(tracker_conf.get("include_private_flights", False))
         if include_commercial:
-            os.environ["CLEAR_INCLUDE_COMMERCIAL"] = "1"
+            os.environ["LOTBOOK_INCLUDE_COMMERCIAL"] = "1"
         else:
-            os.environ.pop("CLEAR_INCLUDE_COMMERCIAL", None)
+            os.environ.pop("LOTBOOK_INCLUDE_COMMERCIAL", None)
         if include_private:
-            os.environ["CLEAR_INCLUDE_PRIVATE"] = "1"
+            os.environ["LOTBOOK_INCLUDE_PRIVATE"] = "1"
         else:
-            os.environ.pop("CLEAR_INCLUDE_PRIVATE", None)
+            os.environ.pop("LOTBOOK_INCLUDE_PRIVATE", None)
         if not auto_refresh:
             paused = True
         snapshot = self._tracker_snapshot(mode, allow_refresh=auto_refresh)

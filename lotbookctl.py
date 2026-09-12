@@ -13,7 +13,8 @@ import time
 from pathlib import Path
 from typing import Iterable, Optional
 
-from clear_bootstrap import REPO_ROOT, ensure_runtime_dependencies, missing_runtime_modules
+from lotbook_bootstrap import REPO_ROOT, ensure_runtime_dependencies, missing_runtime_modules
+from utils.identity import WEB_API_KEY_ENV, getenv
 
 os.chdir(REPO_ROOT)
 if __name__ == "__main__" and not ensure_runtime_dependencies(
@@ -48,7 +49,7 @@ from utils.launcher import (
     write_pid,
 )
 
-LOGGER = logging.getLogger("clear.clearctl")
+LOGGER = logging.getLogger("lotbook.lotbookctl")
 
 try:
     from dotenv import load_dotenv
@@ -81,7 +82,7 @@ _STOPPING = False
 
 
 def _print_header() -> None:
-    print(">> Clear")
+    print(">> Lotbook")
     print(">> Seperet LLC | https://seperet.com/")
 
 
@@ -226,7 +227,7 @@ def _ensure_playwright(npm_path: str, web_dir: Path, auto_yes: bool) -> bool:
 def _health_check(api_port: int) -> bool:
     url = f"http://127.0.0.1:{api_port}/api/health"
     headers = {}
-    api_key = os.getenv("CLEAR_WEB_API_KEY", "")
+    api_key = getenv(WEB_API_KEY_ENV)
     if api_key:
         headers["X-API-Key"] = api_key
     try:
@@ -250,12 +251,12 @@ def _terminate_port_processes(
         safe_pids = filter_matching_pids(pids, tokens or [])
         if not safe_pids:
             pid_list = ", ".join(str(pid) for pid in pids)
-            print(f">> {label} port {port} in use by non-Clear process(es) {pid_list}. Refusing to terminate.")
+            print(f">> {label} port {port} in use by non-Lotbook process(es) {pid_list}. Refusing to terminate.")
             return False
         alive = [pid for pid in safe_pids if process_alive(pid)]
         target = alive or safe_pids
         pid_list = ", ".join(str(pid) for pid in target)
-        print(f">> {label} port {port} in use by Clear process(es) {pid_list}. Terminating.")
+        print(f">> {label} port {port} in use by Lotbook process(es) {pid_list}. Terminating.")
         for pid in target:
             terminate_pid(pid, timeout=8.0)
         wait_for_port_release(port, timeout=wait_timeout)
@@ -338,7 +339,10 @@ def _start(args: argparse.Namespace) -> int:
         api_cmd = [sys.executable, "-m", "web_api.server"]
         control_path = prepare_control(args.ui_port)
         api_env = os.environ.copy()
-        api_env["CLEAR_STACK_CONTROL"] = str(control_path)
+        api_env["LOTBOOK_STACK_CONTROL"] = str(control_path)
+        api_key = getenv(WEB_API_KEY_ENV)
+        if api_key:
+            api_env[WEB_API_KEY_ENV] = api_key
         if args.reload:
             api_cmd = [sys.executable, "-m", "uvicorn", "web_api.app:app", "--reload"]
         api_cmd.extend(["--port", str(args.api_port)])
@@ -382,8 +386,9 @@ def _start(args: argparse.Namespace) -> int:
 
         ui_env = os.environ.copy()
         ui_env.setdefault("VITE_API_BASE", f"http://127.0.0.1:{args.api_port}")
-        api_key = os.environ.get("CLEAR_WEB_API_KEY")
+        api_key = getenv(WEB_API_KEY_ENV)
         if api_key:
+            ui_env[WEB_API_KEY_ENV] = api_key
             ui_env.setdefault("VITE_API_KEY", api_key)
         ui_cmd = [npm_path, "run", "dev", "--", "--host", "127.0.0.1", "--port", str(args.ui_port)]
         ui_proc = _spawn_process(ui_cmd, cwd=web_dir, env=ui_env, detach=not args.foreground, log_path=WEB_LOG)
@@ -516,7 +521,7 @@ def _doctor(args: argparse.Namespace) -> int:
     if _health_check(args.api_port):
         print(">> API health: ok")
     else:
-        print(">> API health: not running (start it with `python clearctl.py start`).")
+        print(">> API health: not running (start it with `python lotbookctl.py start`).")
     return 0 if ok else 1
 
 
@@ -539,7 +544,7 @@ def _add_start_args(parser: argparse.ArgumentParser) -> None:
 
 
 def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Clear multi-platform launcher.")
+    parser = argparse.ArgumentParser(description="Lotbook multi-platform launcher.")
     sub = parser.add_subparsers(dest="command", required=True)
 
     start = sub.add_parser("start", help="Start API and web UI.")

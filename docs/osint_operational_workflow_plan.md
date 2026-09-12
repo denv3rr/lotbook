@@ -19,7 +19,7 @@ This plan is "Palantir-inspired" only in the public, architectural sense:
 - workflow lineage, observability, and permissions
 - workspace-oriented execution instead of dashboard sprawl
 
-This is an inference from Palantir's public docs, not a claim that Clear should copy proprietary internals.
+This is an inference from Palantir's public docs, not a claim that Lotbook should copy proprietary internals.
 
 ## What Landed In The Current Pass
 
@@ -64,10 +64,10 @@ Primary public references:
 - Palantir AI FDE overview:
   https://www.palantir.com/docs/foundry/ai-fde/overview
 
-Operational mapping for Clear:
+Operational mapping for Lotbook:
 
 1. Ontology-style core
-- Clear should treat trackers, articles, incidents, regions, industries, clients, accounts, ports, airports, routes, and alerts as canonical objects with stable IDs and explicit lineage.
+- Lotbook should treat trackers, articles, incidents, regions, industries, clients, accounts, ports, airports, routes, and alerts as canonical objects with stable IDs and explicit lineage.
 - Actions should be first-class too: triage, suppress duplicate, acknowledge alert, export report pack, tag client relevance, save globe preset, and dispatch follow-up workflow.
 
 2. Operational app behavior
@@ -85,7 +85,7 @@ Operational mapping for Clear:
 - Suggested actions should be permission-aware and bounded by page/workspace context.
 - No assistant summary should bypass deterministic scene/report data or fabricate evidence.
 
-## Canonical Object Model For Clear
+## Canonical Object Model For Lotbook
 
 Phase target object families:
 

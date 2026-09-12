@@ -10,7 +10,7 @@ from web_api.app import app
 
 
 def _api_headers() -> dict:
-    api_key = os.getenv("CLEAR_WEB_API_KEY")
+    api_key = os.getenv("LOTBOOK_WEB_API_KEY")
     if api_key:
         return {"X-API-Key": api_key}
     return {}
@@ -27,7 +27,7 @@ def test_trackers_websocket_stream():
 
 
 def test_trackers_websocket_rejects_missing_key(monkeypatch):
-    monkeypatch.setenv("CLEAR_WEB_API_KEY", "secret")
+    monkeypatch.setenv("LOTBOOK_WEB_API_KEY", "secret")
     client = TestClient(app)
     with pytest.raises(WebSocketDisconnect):
         with client.websocket_connect("/ws/trackers?mode=combined&interval=1"):
@@ -35,7 +35,18 @@ def test_trackers_websocket_rejects_missing_key(monkeypatch):
 
 
 def test_trackers_websocket_accepts_subprotocol_key(monkeypatch):
-    monkeypatch.setenv("CLEAR_WEB_API_KEY", "secret")
+    monkeypatch.setenv("LOTBOOK_WEB_API_KEY", "secret")
+    client = TestClient(app)
+    with client.websocket_connect(
+        "/ws/trackers?mode=combined&interval=1",
+        headers={"sec-websocket-protocol": "lotbook-key.secret"},
+    ) as websocket:
+        payload = websocket.receive_json()
+        assert isinstance(payload, dict)
+
+
+def test_trackers_websocket_accepts_legacy_subprotocol_key(monkeypatch):
+    monkeypatch.setenv("LOTBOOK_WEB_API_KEY", "secret")
     client = TestClient(app)
     with client.websocket_connect(
         "/ws/trackers?mode=combined&interval=1",
@@ -72,7 +83,7 @@ class _FakeWebSocket:
 
 
 def test_trackers_stream_suppresses_expected_transport_reset(monkeypatch):
-    monkeypatch.delenv("CLEAR_WEB_API_KEY", raising=False)
+    monkeypatch.delenv("LOTBOOK_WEB_API_KEY", raising=False)
     monkeypatch.setattr(stream_route, "GlobalTrackers", _FakeTrackers)
     websocket = _FakeWebSocket(
         ConnectionResetError(10054, "An existing connection was forcibly closed by the remote host"),
@@ -85,7 +96,7 @@ def test_trackers_stream_suppresses_expected_transport_reset(monkeypatch):
 
 
 def test_trackers_stream_suppresses_close_message_runtime(monkeypatch):
-    monkeypatch.delenv("CLEAR_WEB_API_KEY", raising=False)
+    monkeypatch.delenv("LOTBOOK_WEB_API_KEY", raising=False)
     monkeypatch.setattr(stream_route, "GlobalTrackers", _FakeTrackers)
     websocket = _FakeWebSocket(RuntimeError("Cannot call send once a close message has been sent."))
 
@@ -96,7 +107,7 @@ def test_trackers_stream_suppresses_close_message_runtime(monkeypatch):
 
 
 def test_trackers_stream_reraises_unexpected_runtime(monkeypatch):
-    monkeypatch.delenv("CLEAR_WEB_API_KEY", raising=False)
+    monkeypatch.delenv("LOTBOOK_WEB_API_KEY", raising=False)
     monkeypatch.setattr(stream_route, "GlobalTrackers", _FakeTrackers)
     websocket = _FakeWebSocket(RuntimeError("unexpected stream failure"))
 

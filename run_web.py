@@ -9,7 +9,8 @@ import sys
 import time
 import webbrowser
 
-from clear_bootstrap import REPO_ROOT, ensure_runtime_dependencies
+from lotbook_bootstrap import REPO_ROOT, ensure_runtime_dependencies
+from utils.identity import WEB_API_KEY_ENV, getenv
 
 os.chdir(REPO_ROOT)
 if __name__ == "__main__" and not ensure_runtime_dependencies(
@@ -20,7 +21,7 @@ if __name__ == "__main__" and not ensure_runtime_dependencies(
 import httpx
 from utils.stack_control import prepare_control, record_process, shutdown_requested
 
-LOGGER = logging.getLogger("clear.run_web")
+LOGGER = logging.getLogger("lotbook.run_web")
 
 try:
     from dotenv import load_dotenv
@@ -53,7 +54,7 @@ WEB_PID = RUNTIME_DIR / "web.pid"
 def _health_check() -> bool:
     try:
         headers = {}
-        api_key = os.getenv("CLEAR_WEB_API_KEY", "")
+        api_key = getenv(WEB_API_KEY_ENV)
         if api_key:
             headers["X-API-Key"] = api_key
         response = httpx.get(
@@ -77,7 +78,7 @@ def _wait_for_api(timeout: float = 8.0) -> bool:
 
 
 def _print_header() -> None:
-    print(">> • CLEAR Web Launcher\n>> • Copyright © 2025 Seperet LLC • https://seperet.com/\n>>")
+    print(">> • LOTBOOK Web Launcher\n>> • Copyright © 2025 Seperet LLC • https://seperet.com/\n>>")
 
 
 def _prompt_yes_no(message: str) -> bool:
@@ -191,14 +192,14 @@ def _terminate_port_processes(
     safe_pids = filter_matching_pids(pids, tokens)
     if safe_pids:
         pid_list = ", ".join(str(pid) for pid in safe_pids)
-        print(f">> {label} port {port} in use by Clear process(es) {pid_list}. Terminating.")
+        print(f">> {label} port {port} in use by Lotbook process(es) {pid_list}. Terminating.")
         for pid in safe_pids:
             terminate_pid(pid)
         wait_for_port_release(port, timeout=8.0)
     remaining = [pid for pid in find_pids_by_port(port) if pid not in safe_pids]
     if remaining:
         pid_list = ", ".join(str(pid) for pid in remaining)
-        print(f">> {label} port {port} in use by non-Clear process(es) {pid_list}. Refusing to terminate.")
+        print(f">> {label} port {port} in use by non-Lotbook process(es) {pid_list}. Refusing to terminate.")
         return False
     return True
 
@@ -247,7 +248,10 @@ def _launch_processes(
     api_cmd = [sys.executable, "-m", "web_api.server"]
     control_path = prepare_control(5173)
     api_env = os.environ.copy()
-    api_env["CLEAR_STACK_CONTROL"] = str(control_path)
+    api_env["LOTBOOK_STACK_CONTROL"] = str(control_path)
+    spawned_key = getenv(WEB_API_KEY_ENV)
+    if spawned_key:
+        api_env[WEB_API_KEY_ENV] = spawned_key
     if reload_api:
         api_cmd = [sys.executable, "-m", "uvicorn", "web_api.app:app", "--reload"]
     api_cmd.extend(["--port", "8000"])
@@ -275,8 +279,9 @@ def _launch_processes(
         return 1
     ui_env = os.environ.copy()
     ui_env.setdefault("VITE_API_BASE", "http://127.0.0.1:8000")
-    api_key = os.environ.get("CLEAR_WEB_API_KEY")
+    api_key = getenv(WEB_API_KEY_ENV)
     if api_key:
+        ui_env[WEB_API_KEY_ENV] = api_key
         ui_env.setdefault("VITE_API_KEY", api_key)
     ui_proc = _spawn_process(ui_cmd, cwd=os.path.realpath(web_dir), env=ui_env, detach=detach)
     write_pid(WEB_PID, ui_proc.pid)
@@ -351,7 +356,7 @@ def _launch_processes(
 
 
 def _parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Launch the CLEAR web stack.")
+    parser = argparse.ArgumentParser(description="Launch the LOTBOOK web stack.")
     parser.add_argument("--no-open", action="store_true", help="Do not open the browser.")
     parser.add_argument("--detach", action="store_true", help="Run API/UI in background and exit.")
     parser.add_argument("--reload", action="store_true", help="Reload the API on code changes.")

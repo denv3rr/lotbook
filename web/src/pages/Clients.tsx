@@ -478,7 +478,7 @@ export default function Clients() {
       value: number;
       displayValue: string;
     }>;
-  const authHint = "Check CLEAR_WEB_API_KEY + localStorage clear_api_key.";
+  const authHint = "Check LOTBOOK_WEB_API_KEY + localStorage lotbook_api_key.";
   const errorMessages = [
     indexError
       ? `Client index failed: ${indexError}${

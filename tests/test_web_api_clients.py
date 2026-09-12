@@ -33,7 +33,7 @@ def client(session, monkeypatch):
     def override_get_db():
         yield session
     app.dependency_overrides[get_db] = override_get_db
-    monkeypatch.setenv("CLEAR_WEB_API_KEY", "test_key")
+    monkeypatch.setenv("LOTBOOK_WEB_API_KEY", "test_key")
     try:
         yield TestClient(app, headers={"X-API-Key": "test_key"})
     finally:

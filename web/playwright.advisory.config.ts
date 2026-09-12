@@ -1,7 +1,7 @@
 import { defineConfig, devices } from "@playwright/test";
 import { randomUUID } from "node:crypto";
 
-process.env.CLEAR_ACCEPTANCE_RUN_ID ||= randomUUID();
+process.env.LOTBOOK_ACCEPTANCE_RUN_ID ||= randomUUID();
 
 export default defineConfig({
   testDir: "./tests", testMatch: "advisory.spec.ts", timeout: 120000,

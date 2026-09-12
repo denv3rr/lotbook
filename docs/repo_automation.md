@@ -1,7 +1,7 @@
 # Repo Automation
 
 This document describes GitHub automation for a personal public clone of
-Clear (`denv3rr/clear`). It is operator setup, not a claim that the remote
+Lotbook (`denv3rr/clear`). It is operator setup, not a claim that the remote
 already has every control enabled.
 
 Related files:

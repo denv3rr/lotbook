@@ -1,5 +1,4 @@
 from pathlib import Path
-import os
 import sqlite3
 from threading import Lock
 
@@ -7,8 +6,9 @@ from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from pydantic import BaseModel, ConfigDict, Field, SecretStr, StrictBool
 
 from core.database import engine
+from utils.identity import WEB_API_KEY_ENV, getenv
 from utils.recovery import encrypted_snapshot
-from web_api.auth import require_api_key
+from web_api.auth import header_confirmed, require_api_key
 
 router = APIRouter(prefix="/api/application", tags=["Recovery"], dependencies=[Depends(require_api_key)])
 _backup_lock = Lock()
@@ -26,11 +26,11 @@ class BackupRequest(BaseModel):
 
 @router.post("/backup")
 def create_backup(payload: BackupRequest, request: Request, database: Path = Depends(canonical_database)):
-    if not os.getenv("CLEAR_WEB_API_KEY"):
+    if not getenv(WEB_API_KEY_ENV):
         raise HTTPException(409, "Configure an API key before exporting a complete database backup.")
     if request.client is None or request.client.host not in ("127.0.0.1", "::1"):
         raise HTTPException(403, "Database backup is available only on the local computer.")
-    if not payload.confirm or request.headers.get("x-clear-backup") != "confirm":
+    if not payload.confirm or not header_confirmed(request.headers, "x-lotbook-backup"):
         raise HTTPException(400, "Explicit database backup confirmation is required.")
     if not _backup_lock.acquire(blocking=False):
         raise HTTPException(409, "Another database backup is in progress.")
@@ -42,4 +42,4 @@ def create_backup(payload: BackupRequest, request: Request, database: Path = Dep
         raise HTTPException(503, "Database backup failed. No operator data was modified.") from failure
     finally:
         _backup_lock.release()
-    return Response(archive, media_type="application/octet-stream", headers={"Content-Disposition": 'attachment; filename="clear-database.clearbackup"', "Cache-Control": "no-store", "X-Content-Type-Options": "nosniff"})
+    return Response(archive, media_type="application/octet-stream", headers={"Content-Disposition": 'attachment; filename="lotbook-database.lotbookbackup"', "Cache-Control": "no-store", "X-Content-Type-Options": "nosniff"})

@@ -1,6 +1,6 @@
 # U.S. Government Standards Baseline
 
-This document is the mandatory engineering baseline for Clear. It maps repo
+This document is the mandatory engineering baseline for Lotbook. It maps repo
 rules to official U.S. government standards and guidance and turns them into
 enforceable project requirements.
 

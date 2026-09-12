@@ -38,7 +38,7 @@ export default function Advisory() {
   }
   async function exportWorkspace() {
     setBusy(true); setActionError("");
-    try { downloadJson(await apiGet("/api/banking/export"), `clear-advisory-${today}.json`); setNotice("Workspace export downloaded with source notes and methodology."); }
+    try { downloadJson(await apiGet("/api/banking/export"), `lotbook-advisory-${today}.json`); setNotice("Workspace export downloaded with source notes and methodology."); }
     catch (reason) { setActionError(reason instanceof Error ? reason.message : "Export failed."); }
     finally { setBusy(false); }
   }

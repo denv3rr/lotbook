@@ -1,6 +1,6 @@
 # Web
 
-Vite + React frontend for Clear. This is the primary web UI and consumes the
+Vite + React frontend for Lotbook. This is the primary web UI and consumes the
 shared API via `src/lib/api.ts`.
 
 ## Structure

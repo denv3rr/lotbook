@@ -21,7 +21,7 @@ def main() -> int:
     app.state.request_shutdown = request_shutdown
     server.run()
     if not finish_shutdown():
-        logging.getLogger(__name__).error("Clear API stopped, but an owned UI process could not be closed. See the stack control record.")
+        logging.getLogger(__name__).error("Lotbook API stopped, but an owned UI process could not be closed. See the stack control record.")
         return 1
     return 0
 

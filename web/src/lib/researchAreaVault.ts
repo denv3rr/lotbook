@@ -1,13 +1,14 @@
-import { AREA_STORAGE_KEY, readAreas, type ResearchArea } from "./worldMap";
+import { AREA_STORAGE_KEY, LEGACY_AREA_STORAGE_KEY, readAreaStorageRaw, readAreas, type ResearchArea } from "./worldMap";
 
 // The passphrase/key never goes to storage. Keep format/KDF fixed and bounded
 // before processing untrusted browser data; a new format needs explicit migration.
-const FORMAT = "clear-research-areas-aes-gcm-v1";
+const FORMAT = "lotbook-research-areas-aes-gcm-v1";
+const LEGACY_FORMAT = "clear-research-areas-aes-gcm-v1";
 const ITERATIONS = 600_000;
 const MAX_BYTES = 65_536;
 const encoder = new TextEncoder();
-const aad = encoder.encode(FORMAT);
-type Envelope = { format: typeof FORMAT; salt: string; iv: string; ciphertext: string };
+type StoredFormat = typeof FORMAT | typeof LEGACY_FORMAT;
+type Envelope = { format: StoredFormat; salt: string; iv: string; ciphertext: string };
 export type AreaSession = { key: CryptoKey; salt: string; raw: string; areas: ResearchArea[] };
 export type AreaStorageState = "new" | "legacy" | "locked";
 
@@ -21,7 +22,7 @@ function decode(value: unknown): Uint8Array<ArrayBuffer> {
 function envelope(raw: string): Envelope {
   if (raw.length > MAX_BYTES) throw new Error("Saved research areas exceed the storage limit.");
   const value = JSON.parse(raw);
-  if (!value || value.format !== FORMAT || decode(value.salt).length !== 16 || decode(value.iv).length !== 12 || decode(value.ciphertext).length < 16) throw new Error("Invalid encrypted research areas; stored data was left unchanged.");
+  if (!value || (value.format !== FORMAT && value.format !== LEGACY_FORMAT) || decode(value.salt).length !== 16 || decode(value.iv).length !== 12 || decode(value.ciphertext).length < 16) throw new Error("Invalid encrypted research areas; stored data was left unchanged.");
   return value;
 }
 export function areaStorageState(raw: string | null): AreaStorageState {
@@ -44,7 +45,7 @@ async function encrypt(areas: ResearchArea[], key: CryptoKey, salt: string): Pro
   const plaintext = encoder.encode(JSON.stringify(readAreas(JSON.stringify(areas))));
   if (plaintext.length > MAX_BYTES / 2) throw new Error("Saved research areas exceed the storage limit.");
   const iv = crypto.getRandomValues(new Uint8Array(12));
-  const ciphertext = await crypto.subtle.encrypt({ name: "AES-GCM", iv, additionalData: aad, tagLength: 128 }, key, plaintext);
+  const ciphertext = await crypto.subtle.encrypt({ name: "AES-GCM", iv, additionalData: encoder.encode(FORMAT), tagLength: 128 }, key, plaintext);
   return JSON.stringify({ format: FORMAT, salt, iv: encode(iv), ciphertext: encode(new Uint8Array(ciphertext)) } satisfies Envelope);
 }
 async function replace(expected: string | null, ciphertext: string, isCurrent: () => boolean): Promise<void> {
@@ -52,14 +53,15 @@ async function replace(expected: string | null, ciphertext: string, isCurrent: (
   await navigator.locks.request(AREA_STORAGE_KEY, { mode: "exclusive", ifAvailable: true }, lock => {
     if (!lock) throw new Error("Research areas are being updated in another tab. Try again.");
     if (!isCurrent()) throw new Error("Research-area operation cancelled.");
-    if (localStorage.getItem(AREA_STORAGE_KEY) !== expected) throw new Error("Saved research areas changed in another tab. Lock and unlock to reload them.");
+    if (readAreaStorageRaw() !== expected) throw new Error("Saved research areas changed in another tab. Lock and unlock to reload them.");
     // This is the only writer: ciphertext only, after encryption and revision check.
     localStorage.setItem(AREA_STORAGE_KEY, ciphertext);
+    localStorage.removeItem(LEGACY_AREA_STORAGE_KEY);
   });
 }
 export async function openAreaVault(passphrase: string, allowMigration: boolean, isCurrent: () => boolean): Promise<AreaSession> {
   requireCrypto();
-  const raw = localStorage.getItem(AREA_STORAGE_KEY);
+  const raw = readAreaStorageRaw();
   const state = areaStorageState(raw);
   if (state === "legacy" && !allowMigration) throw new Error("Confirm encryption of existing unencrypted research areas first.");
   const saved = state === "locked" ? envelope(raw!) : null;
@@ -68,14 +70,15 @@ export async function openAreaVault(passphrase: string, allowMigration: boolean,
   let areas: ResearchArea[];
   if (saved) {
     try {
-      const plaintext = await crypto.subtle.decrypt({ name: "AES-GCM", iv: decode(saved.iv), additionalData: aad, tagLength: 128 }, key, decode(saved.ciphertext));
+      const plaintext = await crypto.subtle.decrypt({ name: "AES-GCM", iv: decode(saved.iv), additionalData: encoder.encode(saved.format), tagLength: 128 }, key, decode(saved.ciphertext));
       areas = readAreas(new TextDecoder("utf-8", { fatal: true }).decode(plaintext));
     } catch { throw new Error("Could not unlock research areas. Check the passphrase; damaged data is left unchanged."); }
   } else areas = readAreas(raw);
   if (!isCurrent()) throw new Error("Research-area operation cancelled.");
-  if (localStorage.getItem(AREA_STORAGE_KEY) !== raw) throw new Error("Saved research areas changed. Try unlocking again.");
-  const encrypted = saved ? raw! : await encrypt(areas, key, salt);
-  if (!saved) await replace(raw, encrypted, isCurrent);
+  if (readAreaStorageRaw() !== raw) throw new Error("Saved research areas changed. Try unlocking again.");
+  const needsRewrite = !saved || saved.format !== FORMAT;
+  const encrypted = needsRewrite ? await encrypt(areas, key, salt) : raw!;
+  if (needsRewrite) await replace(raw, encrypted, isCurrent);
   return { key, salt, raw: encrypted, areas };
 }
 export async function saveAreaVault(session: AreaSession, areas: ResearchArea[], isCurrent: () => boolean): Promise<AreaSession> {

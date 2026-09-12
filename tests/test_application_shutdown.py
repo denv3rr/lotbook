@@ -31,12 +31,12 @@ def test_control_replacement_keeps_previous_marker_readable_until_commit(tmp_pat
 
 def test_shutdown_requires_key_loopback_confirmation_header_and_origin(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
-    monkeypatch.setenv("CLEAR_WEB_API_KEY", "unit-shutdown-key")
+    monkeypatch.setenv("LOTBOOK_WEB_API_KEY", "unit-shutdown-key")
     control = prepare_control(5173)
     record_process(control, "api", os.getpid())
     # This tests routing only; the callback never terminates any process.
     record_process(control, "web", os.getpid())
-    monkeypatch.setenv("CLEAR_STACK_CONTROL", str(control))
+    monkeypatch.setenv("LOTBOOK_STACK_CONTROL", str(control))
     calls = []
     app = FastAPI()
     app.include_router(router)
@@ -44,7 +44,7 @@ def test_shutdown_requires_key_loopback_confirmation_header_and_origin(tmp_path,
     with TestClient(app, client=("127.0.0.1", 40001), headers={"X-API-Key": "unit-shutdown-key"}) as client:
         assert client.get("/api/application/status").json()["shutdown_available"]
         assert client.post("/api/application/shutdown", json={"confirm": True}).status_code == 403
-        headers = {"X-Clear-Shutdown": "confirm", "Origin": "http://127.0.0.1:5173"}
+        headers = {"X-Lotbook-Shutdown": "confirm", "Origin": "http://127.0.0.1:5173"}
         assert client.post("/api/application/shutdown", headers=headers, json={"confirm": False}).status_code == 400
         assert client.post("/api/application/shutdown", headers=headers, json={"confirm": "true"}).status_code == 422
         assert client.post("/api/application/shutdown", headers={**headers, "Origin": "https://untrusted.example"}, json={"confirm": True}).status_code == 403
@@ -52,9 +52,9 @@ def test_shutdown_requires_key_loopback_confirmation_header_and_origin(tmp_path,
         assert client.post("/api/application/shutdown", headers=headers, json={"confirm": True}).status_code == 202
         assert calls == ["requested"]
         assert client.post("/api/application/shutdown", headers={**headers, "X-API-Key": "wrong"}, json={"confirm": True}).status_code == 401
-    with TestClient(app, client=("192.0.2.10", 40001), headers={"X-API-Key": "unit-shutdown-key", "X-Clear-Shutdown": "confirm"}) as client:
+    with TestClient(app, client=("192.0.2.10", 40001), headers={"X-API-Key": "unit-shutdown-key", "X-Lotbook-Shutdown": "confirm"}) as client:
         assert client.post("/api/application/shutdown", json={"confirm": True}).status_code == 403
-    monkeypatch.delenv("CLEAR_STACK_CONTROL")
+    monkeypatch.delenv("LOTBOOK_STACK_CONTROL")
     assert own_control() is None
 
 

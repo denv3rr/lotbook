@@ -65,7 +65,7 @@ test("assistant context scope persists across pages", async ({ page }) => {
   await page.goto("/");
   await page.evaluate(() => {
     localStorage.setItem(
-      "clear.assistant.context",
+      "lotbook.assistant.context",
       JSON.stringify({ clientId: "client-1", accountId: "acct-1" })
     );
   });
@@ -73,14 +73,14 @@ test("assistant context scope persists across pages", async ({ page }) => {
   await page.goto("/clients");
   await expect
     .poll(() =>
-      page.evaluate(() => window.localStorage.getItem("clear.assistant.context"))
+      page.evaluate(() => window.localStorage.getItem("lotbook.assistant.context"))
     )
     .toContain("client-1");
 
   await page.goto("/trackers");
   await expect
     .poll(() =>
-      page.evaluate(() => window.localStorage.getItem("clear.assistant.context"))
+      page.evaluate(() => window.localStorage.getItem("lotbook.assistant.context"))
     )
     .toContain("acct-1");
 });

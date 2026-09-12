@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "title": "Clear inspection corpus",
+  "title": "Lotbook inspection corpus",
   "description": "Research-grade documentation that independent inspectors must load before verifying a plan, diff, generated code, or reasoning trace. This is the training set for inspection, not a product runtime.",
   "files": [
     "docs/us_gov_standards.md",

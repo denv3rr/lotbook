@@ -1,4 +1,4 @@
-# Clear
+# Lotbook
 ![GitHub Created At](https://img.shields.io/github/created-at/denv3rr/clear) ![GitHub repo size](https://img.shields.io/github/repo-size/denv3rr/clear)
 
 A local-first advisory and client-management workspace with portfolio
@@ -34,47 +34,46 @@ Copy `.env.example` to `.env`. The most common variables are below.
 
 | Variable | Purpose |
 | --- | --- |
-| `CLEAR_WEB_API_KEY` | Enables API key auth for the web/API stack. |
+| `LOTBOOK_WEB_API_KEY` | Enables API key auth for the web/API stack. |
 | `FINNHUB_API_KEY` | Optional market symbol and quote lookups. |
 | `OPENSKY_CLIENT_ID` | OpenSky OAuth client id for flight feeds. |
 | `OPENSKY_CLIENT_SECRET` | OpenSky OAuth client secret for flight feeds. |
 | `SHIPPING_DATA_URL` | Optional vessel/shipping feed endpoint. |
-| `CLEAR_INCLUDE_COMMERCIAL` | Include commercial flights when set to `1`. |
-| `CLEAR_INCLUDE_PRIVATE` | Include private flights when set to `1`. |
+| `LOTBOOK_INCLUDE_COMMERCIAL` | Include commercial flights when set to `1`. |
+| `LOTBOOK_INCLUDE_PRIVATE` | Include private flights when set to `1`. |
 
 ### Start with one command
 
 From the repository directory:
 
 ```pwsh
-.\clear
+.\lotbook
 ```
 
-On Command Prompt, use `clear`. On macOS or Linux, use `./clear.sh`.
+On Command Prompt, use `lotbook`. On macOS or Linux, use `./lotbook.sh`.
 
-PowerShell already reserves the bare word `clear` for clearing the terminal. To
-make `clear` launch this application instead, run this one-time setup from the
-repository directory:
+To launch from any directory, run this one-time setup from the repository
+directory:
 
 ```pwsh
-.\clear.ps1 install-command
+.\lotbook.ps1 install-command
 ```
 
 Open a new PowerShell session, then the normal workflow is:
 
 ```pwsh
-clear
-clear status
-clear stop
+lotbook
+lotbook status
+lotbook stop
 ```
 
-The setup keeps `Clear-Host` and `cls` available for clearing the terminal. It
-stores the absolute repository path in the current-user PowerShell profile, so
-the installed `clear` command works from any directory. Rerun the setup command
-if the checkout is moved.
+The setup installs a `lotbook` function in the current-user PowerShell profile
+and leaves the terminal `clear` command unchanged. Rerun the setup command if
+the checkout is moved. If an older Clear launcher was installed, this setup
+removes it.
 
 Optional startup flags can follow the command directly—for example,
-`clear --detach --no-open`. Use `clear --no-install` when you want startup to
+`lotbook --detach --no-open`. Use `lotbook --no-install` when you want startup to
 fail instead of installing a missing hashed/locked dependency.
 
 The standard-library bootstrap installs missing approved web/API runtime
@@ -106,7 +105,7 @@ manual `npm run build` or rebuild the application from scratch.
 Notes:
 
 - OpenSky is the only flight feed path right now.
-- When `CLEAR_WEB_API_KEY` is set, the launcher forwards it to the web UI as
+- When `LOTBOOK_WEB_API_KEY` is set, the launcher forwards it to the web UI as
   `VITE_API_KEY` for local auth.
 - Additional tracker/feed flags and OSINT notes live in
   [docs/osint.md](docs/osint.md).
@@ -114,19 +113,19 @@ Notes:
 ## Common Commands
 
 ```pwsh
-clear
-clear status
-clear stop
+lotbook
+lotbook status
+lotbook stop
 ```
 
 ```pwsh
-clear cli
-clear doctor
-clear logs
+lotbook cli
+lotbook doctor
+lotbook logs
 ```
 
 Without the optional PowerShell command setup, use the same arguments with
-`.\clear`, for example `.\clear doctor`. Use `python clear_bootstrap.py start`
+`.\lotbook`, for example `.\lotbook doctor`. Use `python lotbook_bootstrap.py start`
 for automation that should retain the same verified dependency bootstrap.
 
 ## Testing

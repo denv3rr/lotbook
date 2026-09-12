@@ -30,7 +30,7 @@ _MAP_HTML = """
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no" />
-  <title>Clear - Global Trackers</title>
+  <title>Lotbook - Global Trackers</title>
   <script src="https://unpkg.com/maplibre-gl@2.4.0/dist/maplibre-gl.js"></script>
   <link href="https://unpkg.com/maplibre-gl@2.4.0/dist/maplibre-gl.css" rel="stylesheet" />
   <style>
@@ -358,7 +358,7 @@ class TrackerTableModel(QAbstractTableModel):
 class TrackerGuiWindow(QMainWindow):
     def __init__(self, refresh_seconds: int = 10, start_paused: bool = False):
         super().__init__()
-        self.setWindowTitle("Clear - Global Trackers")
+        self.setWindowTitle("Lotbook - Global Trackers")
         self.resize(1400, 800)
         self.setStyleSheet(self._build_stylesheet())
 

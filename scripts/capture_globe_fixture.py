@@ -52,21 +52,24 @@ SCENE_CAPTURE_CONFIG = {
 }
 
 
-def _load_root_env_value(name: str) -> str:
-    from_process = os.getenv(name)
-    if from_process:
-        return from_process
+def _load_root_env_value(*names: str) -> str:
+    for name in names:
+        from_process = os.getenv(name)
+        if from_process:
+            return from_process
     env_path = ROOT / ".env"
     if not env_path.exists():
         return ""
+    parsed: dict[str, str] = {}
     for line in env_path.read_text(encoding="utf-8").splitlines():
         trimmed = line.strip()
         if not trimmed or trimmed.startswith("#") or "=" not in trimmed:
             continue
         key, value = trimmed.split("=", 1)
-        if key.strip() != name:
-            continue
-        return value.strip().strip("'\"")
+        parsed[key.strip()] = value.strip().strip("'\"")
+    for name in names:
+        if parsed.get(name):
+            return parsed[name]
     return ""
 
 
@@ -132,7 +135,7 @@ def _load_tracker_input_summary() -> Dict[str, Any]:
 
 
 def _headers() -> Dict[str, str]:
-    api_key = _load_root_env_value("CLEAR_WEB_API_KEY")
+    api_key = _load_root_env_value("LOTBOOK_WEB_API_KEY", "CLEAR_WEB_API_KEY")
     return {"X-API-Key": api_key} if api_key else {}
 
 

@@ -17,7 +17,7 @@ def main():
                 raise RuntimeError(f"Acceptance port {port} is occupied; nothing was stopped.")
     runtime_root = ROOT / "test_runtime"
     runtime_root.mkdir(exist_ok=True)
-    run_id = os.environ.get("CLEAR_ACCEPTANCE_RUN_ID", "manual")
+    run_id = os.environ.get("LOTBOOK_ACCEPTANCE_RUN_ID", "manual")
     if not all(character.isalnum() or character == "-" for character in run_id):
         raise ValueError("Invalid acceptance run identifier.")
     runtime = Path(tempfile.mkdtemp(prefix=f"advisory-browser-{run_id}-", dir=runtime_root))
@@ -27,8 +27,8 @@ def main():
     else:
         web.symlink_to(ROOT / "web", target_is_directory=True)
     os.chdir(runtime)
-    os.environ.update({"PYTHONPATH": str(ROOT), "CLEAR_WEB_API_KEY": "isolated-browser-verification", "VITE_API_BASE": "http://127.0.0.1:18080", "VITE_API_KEY": "isolated-browser-verification"})
-    from clearctl import _parse_args, _start
+    os.environ.update({"PYTHONPATH": str(ROOT), "LOTBOOK_WEB_API_KEY": "isolated-browser-verification", "VITE_API_BASE": "http://127.0.0.1:18080", "VITE_API_KEY": "isolated-browser-verification"})
+    from lotbookctl import _parse_args, _start
     # The supported launcher normalizes cwd on import. Restore isolated data
     # paths before invoking it; never launch acceptance against operator data.
     os.chdir(runtime)

@@ -9,7 +9,8 @@ import {
 } from "react";
 import type { ReactNode } from "react";
 
-const SCENE_STATE_KEY = "clear_scene_state";
+const SCENE_STATE_KEY = "lotbook_scene_state";
+const LEGACY_SCENE_STATE_KEY = "clear_scene_state";
 const SCENE_STATE_VERSION = 2;
 
 export type SceneId = "trackers" | "intel" | "overview";
@@ -168,7 +169,7 @@ function normalizeBoolean(value: unknown, fallback: boolean) {
 function readStoredSceneState(): SceneRuntimeState {
   if (typeof window === "undefined") return DEFAULT_SCENE_STATE;
   try {
-    const raw = window.localStorage.getItem(SCENE_STATE_KEY);
+    const raw = window.localStorage.getItem(SCENE_STATE_KEY) ?? window.localStorage.getItem(LEGACY_SCENE_STATE_KEY);
     if (!raw) return DEFAULT_SCENE_STATE;
     const parsed = JSON.parse(raw) as Partial<SceneRuntimeState> & { version?: number };
     const currentVersion = parsed.version === SCENE_STATE_VERSION;
@@ -255,6 +256,7 @@ export function SceneProvider({ children }: { children: ReactNode }) {
         SCENE_STATE_KEY,
         JSON.stringify({ ...sceneState, version: SCENE_STATE_VERSION }),
       );
+      window.localStorage.removeItem(LEGACY_SCENE_STATE_KEY);
     } catch {
       // Ignore storage failures and keep runtime-only state.
     }

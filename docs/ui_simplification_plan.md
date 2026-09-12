@@ -6,7 +6,7 @@ layers, or changes to API contracts.
 
 ## Product Rule
 
-Clear should be simple by default and powerful on demand.
+Lotbook should be simple by default and powerful on demand.
 
 Every major screen should establish three levels:
 

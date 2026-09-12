@@ -19,8 +19,16 @@ from cryptography.exceptions import InvalidTag
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 from cryptography.hazmat.primitives.kdf.scrypt import Scrypt
 
-MAGIC = b"CLEARBACKUP\x00\x01"
+MAGIC = b"LOTBOOKBACKUP\x00\x01"
+LEGACY_MAGIC = b"CLEARBACKUP\x00\x01"
 MAX_DATABASE_BYTES = 64 * 1024 * 1024
+
+
+def _archive_magic(archive: bytes) -> bytes | None:
+    for magic in (MAGIC, LEGACY_MAGIC):
+        if archive.startswith(magic):
+            return magic
+    return None
 
 
 def _key(passphrase: str, salt: bytes) -> bytes:
@@ -43,7 +51,7 @@ def encrypted_snapshot(database_path: Path, passphrase: str) -> bytes:
     if not database_path.is_file():
         raise ValueError("The canonical database is unavailable.")
     started = time.monotonic()
-    with tempfile.TemporaryDirectory(prefix="clear-backup-") as directory:
+    with tempfile.TemporaryDirectory(prefix="lotbook-backup-") as directory:
         snapshot = Path(directory) / "snapshot.db"
         def progress(_status: int, _remaining: int, total: int) -> None:
             if time.monotonic() - started > 15:
@@ -67,12 +75,13 @@ def restore_to_new_file(archive: bytes, passphrase: str, destination: Path) -> d
     """Verify before atomically creating a recovery candidate, never overwrite."""
     if destination.exists():
         raise ValueError("Recovery destination already exists; choose a new staging file.")
-    if not len(MAGIC) + 44 < len(archive) <= MAX_DATABASE_BYTES + 16384 or not archive.startswith(MAGIC):
-        raise ValueError("Invalid or oversized Clear backup.")
-    offset = len(MAGIC)
+    magic = _archive_magic(archive)
+    if magic is None or not len(magic) + 44 < len(archive) <= MAX_DATABASE_BYTES + 16384:
+        raise ValueError("Invalid or oversized Lotbook backup.")
+    offset = len(magic)
     salt, nonce = archive[offset:offset + 16], archive[offset + 16:offset + 28]
     try:
-        plaintext = AESGCM(_key(passphrase, salt)).decrypt(nonce, archive[offset + 28:], MAGIC)
+        plaintext = AESGCM(_key(passphrase, salt)).decrypt(nonce, archive[offset + 28:], magic)
     except InvalidTag as failure:
         raise ValueError("Backup authentication failed: incorrect passphrase or damaged archive.") from failure
     manifest_size = int.from_bytes(plaintext[:4], "big")
@@ -83,7 +92,7 @@ def restore_to_new_file(archive: bytes, passphrase: str, destination: Path) -> d
     if not isinstance(manifest, dict) or manifest.get("format") != 1 or manifest.get("scope") != "canonical-sqlite-database" or not data.startswith(b"SQLite format 3\x00") or hashlib.sha256(data).hexdigest() != manifest.get("sha256"):
         raise ValueError("Backup database digest or format is invalid.")
     destination = destination.resolve()
-    descriptor, temporary_name = tempfile.mkstemp(prefix=".clear-recovery-", suffix=".db", dir=destination.parent)
+    descriptor, temporary_name = tempfile.mkstemp(prefix=".lotbook-recovery-", suffix=".db", dir=destination.parent)
     temporary = Path(temporary_name)
     try:
         with os.fdopen(descriptor, "wb") as handle:

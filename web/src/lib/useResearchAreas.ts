@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { AREA_STORAGE_KEY, type ResearchArea } from "./worldMap";
+import { AREA_STORAGE_KEY, LEGACY_AREA_STORAGE_KEY, readAreaStorageRaw, type ResearchArea } from "./worldMap";
 import { areaStorageState, openAreaVault, saveAreaVault, type AreaSession, type AreaStorageState } from "./researchAreaVault";
 
 export function useResearchAreas() {
@@ -15,14 +15,14 @@ export function useResearchAreas() {
     generation.current += 1;
     session.current = null;
     setAreas([]); setError(message);
-    try { setState(areaStorageState(localStorage.getItem(AREA_STORAGE_KEY))); }
+    try { setState(areaStorageState(readAreaStorageRaw())); }
     catch (failure) { setState("invalid"); setError(failure instanceof Error ? failure.message : "Saved areas unavailable; stored data was left unchanged."); }
   }
   useEffect(() => {
     active.current = true;
     lock();
     const changed = (event: StorageEvent) => {
-      if (event.storageArea === localStorage && (event.key === AREA_STORAGE_KEY || event.key === null)) lock("Research areas changed in another tab. Unlock to reload them.");
+      if (event.storageArea === localStorage && (event.key === AREA_STORAGE_KEY || event.key === LEGACY_AREA_STORAGE_KEY || event.key === null)) lock("Research areas changed in another tab. Unlock to reload them.");
     };
     window.addEventListener("storage", changed);
     return () => { active.current = false; generation.current += 1; session.current = null; window.removeEventListener("storage", changed); };

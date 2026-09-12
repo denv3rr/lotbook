@@ -6,7 +6,7 @@ This document summarizes core API contracts and shared response expectations.
 
 ## Conventions
 - JSON responses include a `meta` payload (route, source, timestamp, warnings).
-- When `CLEAR_WEB_API_KEY` is set, `X-API-Key` is required.
+- When `LOTBOOK_WEB_API_KEY` is set, `X-API-Key` is required.
 - Payloads must be JSON-ready view-models (no SQLAlchemy objects).
 
 ## Core Routes

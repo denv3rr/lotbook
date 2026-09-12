@@ -133,7 +133,7 @@ export default function Intel() {
     interval: 120000
   });
 
-  const authHint = "Check CLEAR_WEB_API_KEY + localStorage clear_api_key.";
+  const authHint = "Check LOTBOOK_WEB_API_KEY + localStorage lotbook_api_key.";
   const errorMessages = [
     metaError ? `Intel metadata failed: ${metaError}` : null,
     summaryError

@@ -19,12 +19,12 @@ test("advisory landing, real client and mandate workflow, keyboard dialog", asyn
   await expect(dialog).toBeVisible();
   await page.keyboard.press("Shift+Tab");
   await expect(dialog.locator(":focus")).toHaveCount(1);
-  await dialog.getByLabel("Client or company name").fill("Clear browser verification");
+  await dialog.getByLabel("Client or company name").fill("Lotbook browser verification");
   await dialog.getByRole("button", { name: "Save client" }).click();
   await expect(dialog).not.toBeVisible();
   await page.getByRole("button", { name: "New deal", exact: true }).first().click();
   const deal = page.getByRole("dialog", { name: "New deal" });
-  await deal.getByRole("combobox", { name: "Client *", exact: true }).selectOption({ label: "Clear browser verification" });
+  await deal.getByRole("combobox", { name: "Client *", exact: true }).selectOption({ label: "Lotbook browser verification" });
   await deal.getByLabel("Deal name").fill("Advisory workflow verification");
   await deal.getByLabel("Deal owner").fill("Verification operator");
   await deal.getByLabel("Source / basis").fill("Operator-created acceptance record in an isolated database; no client or market facts claimed.");
@@ -43,7 +43,7 @@ test("advisory landing, real client and mandate workflow, keyboard dialog", asyn
   await page.getByRole("button", { name: "Tasks & diligence" }).click();
   await page.getByRole("button", { name: "New task" }).click();
   const task = page.getByRole("dialog");
-  await task.getByRole("combobox", { name: "Client *", exact: true }).selectOption({ label: "Clear browser verification" });
+  await task.getByRole("combobox", { name: "Client *", exact: true }).selectOption({ label: "Lotbook browser verification" });
   await task.getByLabel("Task title").fill("Verify review workflow");
   await task.getByLabel("Task owner").fill("Verification operator");
   await task.getByLabel("Source / basis").fill("Actual isolated browser acceptance run.");
@@ -53,7 +53,7 @@ test("advisory landing, real client and mandate workflow, keyboard dialog", asyn
   await page.getByRole("button", { name: "Relationships", exact: true }).click();
   await page.getByRole("button", { name: "New contact" }).click();
   const contact = page.getByRole("dialog");
-  await contact.getByRole("combobox", { name: "Client *", exact: true }).selectOption({ label: "Clear browser verification" });
+  await contact.getByRole("combobox", { name: "Client *", exact: true }).selectOption({ label: "Lotbook browser verification" });
   await contact.getByLabel("Contact name").fill("Acceptance operator");
   await contact.getByLabel("Relationship owner").fill("Verification operator");
   await contact.getByLabel("Source / basis").fill("Actual isolated acceptance run; not a customer contact.");
@@ -80,7 +80,7 @@ test("arithmetic-only DCF and comparable models save, reload, and preserve versi
   await expect(page.locator(".bank-value").first()).toHaveText("$1,000.00");
   await page.getByLabel("Model name").fill("DCF arithmetic snapshot");
   await page.getByLabel("Prepared by").fill("Acceptance operator");
-  await page.getByRole("combobox", { name: "Model client *", exact: true }).selectOption({ label: "Clear browser verification" });
+  await page.getByRole("combobox", { name: "Model client *", exact: true }).selectOption({ label: "Lotbook browser verification" });
   await page.getByRole("button", { name: "Save model version" }).click();
   await expect(page.getByRole("status").filter({ hasText: "Valuation saved" })).toBeVisible();
   await page.reload();
@@ -107,7 +107,7 @@ test("arithmetic-only DCF and comparable models save, reload, and preserve versi
   await expect(page.getByRole("cell", { name: "$2,000.00", exact: true }).first()).toBeVisible();
   await page.getByLabel("Model name").fill("Comparable arithmetic snapshot");
   await page.getByLabel("Prepared by").fill("Acceptance operator");
-  await page.getByRole("combobox", { name: "Model client *", exact: true }).selectOption({ label: "Clear browser verification" });
+  await page.getByRole("combobox", { name: "Model client *", exact: true }).selectOption({ label: "Lotbook browser verification" });
   await page.getByRole("button", { name: "Save model version" }).click();
   await expect(page.getByRole("status").filter({ hasText: "Valuation saved" })).toBeVisible();
 });
@@ -130,7 +130,7 @@ test("client profile loads independently and hidden pattern analysis stays idle"
   const headers = { "X-API-Key": "isolated-browser-verification" };
   const indexResponse = await request.get(`${api}/api/clients`, { headers });
   expect(indexResponse.ok()).toBeTruthy();
-  const client = (await indexResponse.json()).clients.find((row: { name: string }) => row.name === "Clear browser verification");
+  const client = (await indexResponse.json()).clients.find((row: { name: string }) => row.name === "Lotbook browser verification");
   expect(client).toBeTruthy();
   const accountResponse = await request.post(`${api}/api/clients/${client.client_id}/accounts`, { headers, data: { account_name: "Isolated loading verification", account_type: "Taxable", holdings: {} } });
   expect(accountResponse.ok(), await accountResponse.text()).toBeTruthy();
@@ -141,7 +141,7 @@ test("client profile loads independently and hidden pattern analysis stays idle"
   page.on("request", req => observed.push(new URL(req.url()).pathname));
   page.on("pageerror", error => failures.push(error.message));
   await page.goto(`/clients?client=${encodeURIComponent(client.client_id)}`);
-  await expect(page.getByRole("button", { name: /Client Profile Clear browser verification/ })).toBeVisible();
+  await expect(page.getByRole("button", { name: /Client Profile Lotbook browser verification/ })).toBeVisible();
   await expect(page.getByRole("button", { name: "Refresh snapshot", exact: true })).toBeEnabled();
   expect(observed.filter(url => url.endsWith("/patterns"))).toEqual([]);
   await expect(page.getByText("Return History Surface", { exact: true })).toHaveCount(0);
@@ -369,7 +369,7 @@ test("encrypted backup download recovers the real isolated canonical database", 
   await dialog.getByRole("button", { name: "Confirm and download backup", exact: true }).click();
   const download = await downloadEvent;
   const directory = fs.mkdtempSync(path.resolve("test-results/recovery-"));
-  const archive = path.join(directory, "snapshot.clearbackup");
+  const archive = path.join(directory, "snapshot.lotbookbackup");
   const restored = path.join(directory, "verified.db");
   await download.saveAs(archive);
   const result = JSON.parse(execFileSync("python", ["-c", "import json,sys,sqlite3; from pathlib import Path; from utils.recovery import restore_to_new_file; from contextlib import closing; manifest=restore_to_new_file(Path(sys.argv[1]).read_bytes(), sys.stdin.read(), Path(sys.argv[2])); db=sqlite3.connect(sys.argv[2]); count=db.execute(\"SELECT count(*) FROM sqlite_master WHERE type='table'\").fetchone()[0]; db.close(); print(json.dumps({'scope': manifest['scope'], 'tables': count}))", archive, restored], { cwd: path.resolve(".."), input: "isolated-browser-recovery-passphrase", encoding: "utf8" }));
@@ -384,7 +384,7 @@ function isListening(port: number): Promise<boolean> {
 
 test("close app confirms and stops both real isolated servers", async ({ page }) => {
   const runtimeRoot = path.resolve("../test_runtime");
-  const runtimes = fs.readdirSync(runtimeRoot).filter(name => name.startsWith(`advisory-browser-${process.env.CLEAR_ACCEPTANCE_RUN_ID}-`));
+  const runtimes = fs.readdirSync(runtimeRoot).filter(name => name.startsWith(`advisory-browser-${process.env.LOTBOOK_ACCEPTANCE_RUN_ID}-`));
   expect(runtimes).toHaveLength(1);
   const controlDir = path.join(runtimeRoot, runtimes[0], "data/runtime");
   const controlName = fs.readdirSync(controlDir).find(name => name.startsWith("stack-") && name.endsWith(".json"))!;
@@ -396,8 +396,8 @@ test("close app confirms and stops both real isolated servers", async ({ page })
   await expect(page.getByRole("heading", { name: "Your work, in focus." })).toBeVisible();
   await page.getByRole("button", { name: "Close app", exact: true }).click();
   const shutdownStarted = Date.now();
-  await page.getByRole("button", { name: "Close Clear safely" }).click();
-  await expect(page.getByRole("heading", { name: "Clear is shutting down." })).toBeVisible();
+  await page.getByRole("button", { name: "Close Lotbook safely" }).click();
+  await expect(page.getByRole("heading", { name: "Lotbook is shutting down." })).toBeVisible();
   await expect.poll(async () => [await isListening(18080), await isListening(15173)], { timeout: 25000 }).toEqual([false, false]);
   await expect.poll(() => JSON.parse(execFileSync("python", ["-c", "import json,sys,psutil; records=json.loads(sys.argv[1]); identities=[identity for record in records.values() for identity in [record]+record.get('children',[])]; running={p.pid:p.create_time() for p in psutil.process_iter()}; print(json.dumps([i['pid'] for i in identities if running.get(i['pid'])==i['created']]))", JSON.stringify(ownership.processes)], { encoding: "utf8" })), { timeout: 10000 }).toEqual([]);
   expect(JSON.parse(fs.readFileSync(controlPath, "utf8")).shutdown_result).toBe("stopped");

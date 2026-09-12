@@ -53,7 +53,7 @@ RUNTIME_PYTHON_FILES = {
     "run.py",
     "run_web.py",
     "run_cli.py",
-    "clearctl.py",
+    "lotbookctl.py",
 }
 RUNTIME_WEB_ROOTS = ("web/src",)
 

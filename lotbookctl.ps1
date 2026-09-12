@@ -3,4 +3,4 @@ param(
   [string[]]$Args
 )
 
-python "$PSScriptRoot\clearctl.py" @Args
+python "$PSScriptRoot\lotbookctl.py" @Args

@@ -13,7 +13,7 @@ hygiene, and documented GitHub Dependabot remediations.
 In scope:
 
 - API key comparison and HTTP/WebSocket rejection when
-  `CLEAR_WEB_API_KEY` is set
+  `LOTBOOK_WEB_API_KEY` is set
 - Localhost-only CORS
 - Assistant filesystem/path and entry-scope guards
 - Destructive maintenance and duplicate-cleanup confirm gates
@@ -92,7 +92,7 @@ that the product is assessed against these publications.
 | --- | --- | --- |
 | Review and update dependencies; track known defects | NIST SP 800-218 SSDF PW.4, PW.7, RV.1 | Dependabot config, 36-alert pin list below, `docs/repo_automation.md` |
 | Verify software with automated tests before release | NIST SP 800-218 SSDF PW.8, PW.7 | `tests/test_security.py`, `.github/workflows/ci.yml` |
-| Authenticator management and least privilege | NIST SP 800-53 IA-5, AC-3, AC-6 | `CLEAR_WEB_API_KEY` fail-closed HTTP/WebSocket checks |
+| Authenticator management and least privilege | NIST SP 800-53 IA-5, AC-3, AC-6 | `LOTBOOK_WEB_API_KEY` fail-closed HTTP/WebSocket checks |
 | Transmission confidentiality and origin restriction | NIST SP 800-53 SC-8, SC-7, AC-4 | Localhost CORS regex; non-local origin not reflected |
 | Input validation and information-flow control | NIST SP 800-53 SI-10, AC-4 | Assistant path and entry-scope guards |
 | Least functionality / fail-safe defaults | NIST SP 800-53 CM-7, SI-17, CP-12 | Confirm payloads required before destructive routes |

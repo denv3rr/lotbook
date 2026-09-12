@@ -27,7 +27,7 @@
 
 ## Interaction Model
 - UI: floating chat drawer anchored in the top nav, expandable from any page (planned).
-- CLI: shared "Ask Clear" command with context flags (client, account, region) (planned).
+- CLI: shared "Ask Lotbook" command with context flags (client, account, region) (planned).
 - API: `/api/assistant/query` endpoint (auth gated) that accepts:
   - `question` (string)
   - `context` (optional selectors: client_id, account_id, region, industry)
@@ -56,7 +56,7 @@
 4) Add CLI command that mirrors API payloads (done).
 5) Add tests for schema validation and deterministic output constraints.
 
-Clear is not a general multi-agent reasoning framework. Assistant behavior
+Lotbook is not a general multi-agent reasoning framework. Assistant behavior
 stays a deterministic insight layer over existing analytics, news, and client
 data. Local `AGENTS.md` / `agents/` helpers, when present, are ignored git
 state. Independent verification of plans and code uses

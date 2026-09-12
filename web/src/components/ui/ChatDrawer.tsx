@@ -47,7 +47,8 @@ type ChatDrawerProps = {
   onClose: () => void;
 };
 
-const CONTEXT_STORAGE_KEY = "clear.assistant.context";
+const CONTEXT_STORAGE_KEY = "lotbook.assistant.context";
+const LEGACY_CONTEXT_STORAGE_KEY = "clear.assistant.context";
 const DEFAULT_CONTEXT: AssistantContextState = {
   region: "Global",
   industry: "all",
@@ -62,7 +63,7 @@ const readAssistantContext = (): AssistantContextState => {
     return DEFAULT_CONTEXT;
   }
   try {
-    const stored = window.localStorage.getItem(CONTEXT_STORAGE_KEY);
+    const stored = window.localStorage.getItem(CONTEXT_STORAGE_KEY) ?? window.localStorage.getItem(LEGACY_CONTEXT_STORAGE_KEY);
     if (!stored) return DEFAULT_CONTEXT;
     const parsed = JSON.parse(stored) as Partial<AssistantContextState>;
     return {
@@ -86,6 +87,7 @@ const persistAssistantContext = (context: AssistantContextState) => {
   }
   try {
     window.localStorage.setItem(CONTEXT_STORAGE_KEY, JSON.stringify(context));
+    window.localStorage.removeItem(LEGACY_CONTEXT_STORAGE_KEY);
   } catch (error) {
     return;
   }

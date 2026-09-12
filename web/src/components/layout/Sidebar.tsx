@@ -26,7 +26,7 @@ export function Sidebar({ items }: SidebarProps) {
   return (
     <aside className="w-60 border-r border-slate-900/80 p-6 space-y-8 bg-ink-950">
       <div>
-        <h1 className="text-2xl font-semibold tracking-tight">[ CLEAR ]</h1>
+        <h1 className="text-2xl font-semibold tracking-tight">[ LOTBOOK ]</h1>
         <p className="tag text-xs text-emerald-300">Copyright © 2025</p>
         <p className="tag text-xs text-emerald-300">Seperet LLC</p>
         <p className="tag text-xs text-emerald-300">https://seperet.com</p>

@@ -1,6 +1,6 @@
 # Web API
 
-FastAPI backend that exposes Clear data and analytics to the web UI and other
+FastAPI backend that exposes Lotbook data and analytics to the web UI and other
 clients.
 
 ## Structure

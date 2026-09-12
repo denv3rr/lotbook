@@ -68,7 +68,7 @@ export default function News() {
   const regionOptions = meta?.regions?.map((entry) => entry.name) || ["Global"];
   const industryOptions = meta?.industries || ["all"];
   const sourceOptions = meta?.sources || [];
-  const authHint = "Check CLEAR_WEB_API_KEY + localStorage clear_api_key.";
+  const authHint = "Check LOTBOOK_WEB_API_KEY + localStorage lotbook_api_key.";
 
   const formatTimestamp = (ts?: number) => {
     if (!ts) return null;

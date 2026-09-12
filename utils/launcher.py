@@ -230,7 +230,7 @@ def rotate_log(path: Optional[Path], max_bytes: int = MAX_LOG_BYTES) -> None:
 _REDACT_PATTERNS = [
     re.compile(r"(X-API-Key:\s*)([^\s]+)", re.IGNORECASE),
     re.compile(r"(api_key=)([^\s&]+)", re.IGNORECASE),
-    re.compile(r"(CLEAR_WEB_API_KEY=)([^\s]+)", re.IGNORECASE),
+    re.compile(r"((?:LOTBOOK|CLEAR)_WEB_API_KEY=)([^\s]+)", re.IGNORECASE),
     re.compile(r"(VITE_API_KEY=)([^\s]+)", re.IGNORECASE),
 ]
 

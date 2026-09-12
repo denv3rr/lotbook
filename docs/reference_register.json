@@ -19,7 +19,7 @@
     {
       "id": "secure-systems", "version": "SP 800-160 Vol. 1 Rev. 1 (2022)", "coverage": "partial",
       "url": "https://csrc.nist.gov/pubs/sp/800/160/v1/r1/final",
-      "implementation": ["clearctl.py", "utils/recovery.py", "web_api/server.py"],
+      "implementation": ["lotbookctl.py", "utils/recovery.py", "web_api/server.py"],
       "verification": ["tests/test_launcher_utils.py", "tests/test_recovery.py", "web/tests/advisory.spec.ts"],
       "limitation": "Owned shutdown and candidate-only recovery are bounded controls, not a complete lifecycle assurance case or a production recovery drill."
     },
@@ -40,7 +40,7 @@
     {
       "id": "system-safety", "version": "MIL-STD-882E Change 1, 2023-09-27", "coverage": "partial",
       "url": "https://quicksearch.dla.mil/qsDocDetails.aspx?ident_number=36027",
-      "implementation": ["clearctl.py", "utils/recovery.py", "scripts/stage_recovery.py"],
+      "implementation": ["lotbookctl.py", "utils/recovery.py", "scripts/stage_recovery.py"],
       "verification": ["tests/test_launcher_utils.py", "tests/test_recovery.py", "web/tests/advisory.spec.ts"],
       "limitation": "Fail-closed ownership and non-overwrite controls reflect hazard reduction. No formal DoD hazard log, acceptance authority or system-safety certification is claimed."
     },
@@ -63,14 +63,14 @@
       "url": "https://www.msci.com/research-and-insights/paper/1996-riskmetrics-technical-document",
       "implementation": ["modules/client_mgr/calculations.py"],
       "verification": ["tests/test_financial_calculations.py", "tests/test_reference_contracts.py"],
-      "limitation": "EWMA uses lambda 0.94 and sqrt(h) scaling. Historical VaR and inclusive empirical tail mean are documented Clear conventions, not regulatory ES."
+      "limitation": "EWMA uses lambda 0.94 and sqrt(h) scaling. Historical VaR and inclusive empirical tail mean are documented Lotbook conventions, not regulatory ES."
     },
     {
       "id": "hhi", "version": "DOJ HHI overview updated 2024-01-17, referencing 2023 Merger Guidelines", "coverage": "method",
       "url": "https://www.justice.gov/atr/herfindahl-hirschman-index",
       "implementation": ["modules/view_models.py", "modules/reporting/engine.py"],
       "verification": ["tests/test_view_models.py"],
-      "limitation": "Clear sums squared sector fractions of priced securities (0-1), not firm market percentages (0-10000). Manual assets are excluded; no-data zero remains a sentinel. No antitrust or suitability conclusion. Legacy route evidence remains limited."
+      "limitation": "Lotbook sums squared sector fractions of priced securities (0-1), not firm market percentages (0-10000). Manual assets are excluded; no-data zero remains a sentinel. No antitrust or suitability conclusion. Legacy route evidence remains limited."
     },
     {
       "id": "cusum", "version": "NIST/SEMATECH e-Handbook 6.3.2.3, tabular CUSUM", "coverage": "method",
