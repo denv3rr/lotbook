@@ -1,5 +1,5 @@
 # Lotbook
-![GitHub Created At](https://img.shields.io/github/created-at/denv3rr/clear) ![GitHub repo size](https://img.shields.io/github/repo-size/denv3rr/clear)
+![GitHub Created At](https://img.shields.io/github/created-at/denv3rr/lotbook) ![GitHub repo size](https://img.shields.io/github/repo-size/denv3rr/lotbook)
 
 A local-first advisory and client-management workspace with portfolio
 analytics and supporting OSINT.
@@ -24,8 +24,8 @@ Dashboard and API development take priority; new advisory CLI parity is deferred
 ### Clone
 
 ```pwsh
-git clone git@github.com:denv3rr/clear.git --depth 1
-cd clear
+git clone git@github.com:denv3rr/lotbook.git --depth 1
+cd lotbook
 ```
 
 ### Configure `.env`
@@ -66,11 +66,6 @@ lotbook
 lotbook status
 lotbook stop
 ```
-
-The setup installs a `lotbook` function in the current-user PowerShell profile
-and leaves the terminal `clear` command unchanged. Rerun the setup command if
-the checkout is moved. If an older Clear launcher was installed, this setup
-removes it.
 
 Optional startup flags can follow the command directly—for example,
 `lotbook --detach --no-open`. Use `lotbook --no-install` when you want startup to
