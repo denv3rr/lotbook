@@ -19,7 +19,7 @@ python scripts/check_guardrails.py --strict
 - Client store integrity and migrations (`test_client_store_*`).
 - Analytics math and models (`test_financial_calculations.py`,
   `test_regime_models.py`).
-- Launchers and startup behavior (`test_clearctl_startup.py`,
+- Launchers and startup behavior (`test_lotbookctl_startup.py`,
   `test_launcher_utils.py`).
 - News/intel filtering and scoring (`test_intel_*`, `test_news_collectors.py`).
 - Isolated positive-path API tests via `tests/harness.py`
@@ -30,7 +30,7 @@ python scripts/check_guardrails.py --strict
 ## Evidence classes
 
 - Live local data or the isolated SQLite/API harness for positive-path API
-  tests. Do not point tests at operator `data/clear.db`.
+  tests. Do not point tests at operator `data/lotbook.db`.
 - Captured real fixtures with provenance for globe loaded-state visuals.
 - Negative-path tests may construct invalid payloads only to prove rejection.
 - `*_stubbed` tests in `test_web_api.py` are contract-shape / filter wiring

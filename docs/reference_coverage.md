@@ -44,7 +44,7 @@ in the register are evidence checkpoints, not automatic update guarantees.
   was unavailable; no new estimator-validity claim is made.
 - The 2013 Basel link was a consultation. It is replaced with current
   [MAR33](https://www.bis.org/committees/bcbs/basel-framework/standard/mar/33/inforce/2023-01-01/published/2020-06-05).
-  This is background only: Clear has no regulatory ES/capital implementation.
+  This is background only: Lotbook has no regulatory ES/capital implementation.
 
 ## Concrete code and evidence mapping
 
@@ -58,7 +58,7 @@ in the register are evidence checkpoints, not automatic update guarantees.
 | MIL-STD-882 | Owned-process and non-overwrite safeguards; launcher/recovery tests | No formal hazard log, safety acceptance or DoD certification |
 | Fractional returns | Shared-date/current-holdings reconstruction; arithmetic regression tests | Not cash-flow-adjusted account performance. TWR/XIRR exist on the ledger route but stay unavailable without an ending market value |
 | Sharpe | Shared calculations and dashboard payloads; toolkit/reference tests | Constant risk-free convention and scaling assumptions disclosed |
-| RiskMetrics | EWMA and historical-tail helpers; financial/reference tests | Explicit Clear empirical-tail convention, not Basel ES |
+| RiskMetrics | EWMA and historical-tail helpers; financial/reference tests | Explicit Lotbook empirical-tail convention, not Basel ES |
 | DOJ HHI | View-model sector-share squares; view-model tests | Fractional sector concentration, not firm competition or investment suitability |
 | NIST CUSUM | Retrospective two-sided detector; financial tests | Full-window calibration, not a streaming forecasting engine |
 | CAPM | Aligned covariance/variance, alpha and tracking metrics; financial tests | Historical estimates; undefined variance is unavailable |

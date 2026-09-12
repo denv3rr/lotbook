@@ -60,7 +60,7 @@ export function useTrackerStream<T>(options: StreamOptions = {}) {
       const baseUrl = new URL(API_BASE);
       const wsProtocol = baseUrl.protocol === "https:" ? "wss:" : "ws:";
       const wsUrl = `${wsProtocol}//${baseUrl.host}/ws/trackers?${params.toString()}`;
-      const protocols = apiKey ? [`clear-key.${apiKey}`] : undefined;
+      const protocols = apiKey ? [`lotbook-key.${apiKey}`] : undefined;
       const ws = new WebSocket(wsUrl, protocols);
       socketRef.current = ws;
 

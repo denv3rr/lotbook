@@ -21,7 +21,7 @@ def api(tmp_path, monkeypatch):
             yield session
 
     app.dependency_overrides[clients.get_db] = database
-    monkeypatch.setenv("CLEAR_WEB_API_KEY", "isolated-verification-key")
+    monkeypatch.setenv("LOTBOOK_WEB_API_KEY", "isolated-verification-key")
     with TestClient(app, headers={"X-API-Key": "isolated-verification-key"}) as client:
         yield client
     engine.dispose()

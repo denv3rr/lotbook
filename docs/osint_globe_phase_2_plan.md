@@ -103,35 +103,35 @@ Reviewed public data/API references used for source planning:
 
 ## Public Reference Gap Map
 
-This is where Clear still lags public reference patterns or source
+This is where Lotbook still lags public reference patterns or source
 capabilities.
 
 ### Operational Architecture Gaps
 
 - Palantir's public Ontology docs describe a model centered on data, logic,
-  action, and security. Clear has the beginnings of data and visualization, but
+  action, and security. Lotbook has the beginnings of data and visualization, but
   not yet a strong action layer or explicit decision graph.
 - Palantir's public app-building docs emphasize typed SDK exposure for the
-  subset of objects/actions an application needs. Clear still needs a cleaner
+  subset of objects/actions an application needs. Lotbook still needs a cleaner
   object-contract/export boundary for third-party integrations.
 - Palantir's public observability docs emphasize workflow lineage, metrics,
-  execution history, distributed tracing, logging, and log search. Clear has
+  execution history, distributed tracing, logging, and log search. Lotbook has
   `meta` provenance and diagnostics, but not yet a first-class workflow lineage
   model across scene -> report -> export -> action flows.
 
 ### Source Coverage Gaps
 
 - ReliefWeb exposes structured humanitarian/disaster content with filters,
-  facets, and field selection, but Clear does not yet ingest it.
+  facets, and field selection, but Lotbook does not yet ingest it.
 - EONET exposes curated natural events with GeoJSON point/polygon geometry and
-  event/source/category filters, but Clear does not yet consume it.
+  event/source/category filters, but Lotbook does not yet consume it.
 - FIRMS exposes near-real-time fire detections over bounding boxes or the whole
-  world, but Clear does not yet ingest it and must treat detections as
+  world, but Lotbook does not yet ingest it and must treat detections as
   detections, not perimeters.
 - NWS alerts expose CAP/JSON-LD/ATOM, refresh guidance, and zone geometry
-  linkage, but Clear does not yet consume this as an alert layer.
+  linkage, but Lotbook does not yet consume this as an alert layer.
 - USGS GeoJSON feeds expose minute-updating `FeatureCollection` event data, but
-  Clear does not yet ingest or surface this hazard stream.
+  Lotbook does not yet ingest or surface this hazard stream.
 - ACLED exposes structured conflict-event fields and OAuth access that make it
   a strong later candidate for global conflict-event coverage where
   article-only sources underrepresent ongoing wars or insurgencies. It is not
@@ -200,11 +200,11 @@ Each canonical object must include:
 ## Palantir-Inspired Modularization Direction
 
 This section is an inference from Palantir's public docs, not a claim that
-Clear should copy proprietary implementation.
+Lotbook should copy proprietary implementation.
 
 ### 1. Language Layer
 
-Model Clear's operational nouns and verbs explicitly:
+Model Lotbook's operational nouns and verbs explicitly:
 
 - nouns: clients, accounts, incidents, alerts, regions, routes, assets,
   markets, industries, presets, report packs
@@ -428,7 +428,7 @@ Exit:
 ### Phase 2.6: Third-Party Interop Layer
 
 Goal:
-- make Clear outwardly integrable without shipping bespoke per-partner hacks
+- make Lotbook outwardly integrable without shipping bespoke per-partner hacks
 
 Deliver:
 - versioned object/action/scene export contracts
@@ -468,7 +468,7 @@ Do not begin implementation if any planned change would require:
 
 ## Expected Outputs Of The Phase
 
-If this phase is executed correctly, Clear should end with:
+If this phase is executed correctly, Lotbook should end with:
 
 - a globe that shows real incident, alert, and impact layers in addition to
   trackers

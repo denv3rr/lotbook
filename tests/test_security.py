@@ -12,7 +12,7 @@ TEST_API_KEY = "test-security-key"
 
 @pytest.fixture()
 def required_key(monkeypatch):
-    monkeypatch.setenv("CLEAR_WEB_API_KEY", TEST_API_KEY)
+    monkeypatch.setenv("LOTBOOK_WEB_API_KEY", TEST_API_KEY)
     return TEST_API_KEY
 
 

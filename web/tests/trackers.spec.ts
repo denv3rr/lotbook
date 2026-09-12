@@ -46,7 +46,7 @@ test("tracker stream status explains server filters", async ({ page }) => {
 
 test("tracker stream status explains pause", async ({ page }) => {
   await page.addInitScript(() => {
-    window.localStorage.setItem("clear_tracker_paused", "true");
+    window.localStorage.setItem("lotbook_tracker_paused", "true");
   });
   await page.goto("/osint?tab=trackers");
   await expect(page.getByTestId("tracker-stream-status")).toContainText("Stream disabled");

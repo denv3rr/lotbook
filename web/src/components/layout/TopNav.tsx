@@ -10,7 +10,7 @@ export function TopNav({ items, onToggleContext, onToggleAssistant, onToggleScen
   const location = useLocation();
   useEffect(() => { setMobileOpen(false); if (menu.current) menu.current.open = false; }, [location.pathname]);
   function choose(action?: () => void) { if (menu.current) menu.current.open = false; action?.(); }
-  return <header className="bank-nav"><a href="#main-content" className="bank-skip">Skip to workspace</a><div className="bank-nav-inner"><Link to="/" className="bank-brand">CLEAR<span>Advisory & wealth</span></Link>
+  return <header className="bank-nav"><a href="#main-content" className="bank-skip">Skip to workspace</a><div className="bank-nav-inner"><Link to="/" className="bank-brand">LOTBOOK<span>Advisory & wealth</span></Link>
     <button className="bank-icon-button bank-mobile-toggle" aria-label="Toggle navigation" aria-expanded={mobileOpen} onClick={() => setMobileOpen(!mobileOpen)}>{mobileOpen ? <X size={18} /> : <Menu size={18} />}</button>
     <nav aria-label="Primary navigation" className={`bank-primary-nav ${mobileOpen ? "is-open" : ""}`}>{items.filter(item => item.path !== "/system").map(({ path, label, icon: Icon }) => <NavLink end={path === "/"} to={path} key={path}><Icon size={16} />{label}</NavLink>)}</nav>
     <div className="bank-nav-utilities"><details ref={menu} className="bank-workspace-menu" onKeyDown={event => { if (event.key === "Escape" && menu.current) { menu.current.open = false; menu.current.querySelector("summary")?.focus(); } }}><summary className="bank-button">Workspace <ChevronDown size={15} /></summary><div className="bank-menu-items">

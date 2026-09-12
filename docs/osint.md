@@ -39,8 +39,8 @@ Add these tags on accounts to opt in to tracker relevance.
   OpenSky query controls.
 - `FLIGHT_DATA_URL`, `FLIGHT_DATA_PATH`: custom flight data sources.
 - `SHIPPING_DATA_URL`: custom shipping feed.
-- `CLEAR_INCLUDE_COMMERCIAL`: set to `1` to include commercial flights.
-- `CLEAR_INCLUDE_PRIVATE`: set to `1` to include private flights.
+- `LOTBOOK_INCLUDE_COMMERCIAL`: set to `1` to include commercial flights.
+- `LOTBOOK_INCLUDE_PRIVATE`: set to `1` to include private flights.
 
 ## Report Integration
 The weekly brief only includes aviation/maritime notes when:

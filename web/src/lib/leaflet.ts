@@ -6,11 +6,11 @@ let cached: LeafletLib | null = null;
 
 function ensureLeafletStylesheet() {
   if (typeof document === "undefined") return;
-  if (document.querySelector("link[data-clear-leaflet-css]")) return;
+  if (document.querySelector("link[data-lotbook-leaflet-css]")) return;
   const link = document.createElement("link");
   link.rel = "stylesheet";
   link.href = leafletCssUrl;
-  link.dataset.clearLeafletCss = "true";
+  link.dataset.lotbookLeafletCss = "true";
   document.head.appendChild(link);
 }
 

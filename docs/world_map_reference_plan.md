@@ -10,7 +10,7 @@ reference. Its [current README](https://raw.githubusercontent.com/bilawalsidhu/g
 describes navigable imagery/terrain, modular layers, selectable tracked objects
 with metadata and trails, and shareable camera/layer state. It also explicitly
 identifies simulated traffic and estimated camera poses/launch trajectories.
-Those are not evidence suitable for Clear's operational layers.
+Those are not evidence suitable for Lotbook's operational layers.
 
 The useful direction is geographic navigation and source-backed map context,
 not its tactical styling. Its keyless setup and optional photorealistic 3D
@@ -76,7 +76,7 @@ tiles stay sharp.
 No terrain elevations, precise incident polygons or new hazard feeds were added.
 
 NASA, Esri and OSM requests are direct from the browser, keyless, without
-Clear client IDs, notes or API keys. Viewport tile coordinates and the
+Lotbook client IDs, notes or API keys. Viewport tile coordinates and the
 browser's IP reach those hosts. NASA GIBS, Esri ArcGIS Online and OSM tile
 hosts are in CSP. No bulk tile download or offline tile
 cache is implemented. Availability is external; failures show incomplete

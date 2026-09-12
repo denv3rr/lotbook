@@ -24,7 +24,9 @@ def _load_news_health() -> Dict[str, Dict[str, Any]]:
 
 
 def _health_status(health: Dict[str, Any]) -> str:
-    now = int(os.getenv("CLEAR_TIME_OVERRIDE", "0") or 0) or None
+    from utils.identity import getenv
+
+    now = int(getenv("LOTBOOK_TIME_OVERRIDE", "0") or 0) or None
     if now is None:
         now = int(__import__("time").time())
     backoff_until = int(health.get("backoff_until", 0) or 0)

@@ -2,7 +2,16 @@ import type { FeatureCollection, Geometry, Polygon, MultiPolygon } from "geojson
 
 export type MapObservation = { id: string; geometry: Geometry; color: string; kind: "point" | "path" | "pulse" };
 export type ResearchArea = { id: string; name: string; bounds: [number, number, number, number]; createdAt: string; basis: "operator-viewport" };
-export const AREA_STORAGE_KEY = "clear_world_research_areas_v1";
+export const AREA_STORAGE_KEY = "lotbook_world_research_areas_v1";
+export const LEGACY_AREA_STORAGE_KEY = "clear_world_research_areas_v1";
+
+export function readAreaStorageRaw(): string | null {
+  try {
+    return localStorage.getItem(AREA_STORAGE_KEY) ?? localStorage.getItem(LEGACY_AREA_STORAGE_KEY);
+  } catch {
+    return null;
+  }
+}
 export const BLUE_MARBLE_TILES = "https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/BlueMarble_ShadedRelief_Bathymetry/default/GoogleMapsCompatible_Level8/{z}/{y}/{x}.jpeg";
 export const ESRI_WORLD_IMAGERY_TILES = "https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}";
 export const OSM_RASTER_TILES = "https://tile.openstreetmap.org/{z}/{x}/{y}.png";

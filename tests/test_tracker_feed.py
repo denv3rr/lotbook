@@ -18,7 +18,7 @@ class DummyResponse:
 def test_fetch_flights_keeps_points_without_speed_or_alt(monkeypatch):
     monkeypatch.setenv("FLIGHT_DATA_URL", "http://example")
     monkeypatch.delenv("FLIGHT_DATA_PATH", raising=False)
-    monkeypatch.setenv("CLEAR_INCLUDE_COMMERCIAL", "1")
+    monkeypatch.setenv("LOTBOOK_INCLUDE_COMMERCIAL", "1")
     payload = [
         {
             "lat": 33.63,
@@ -36,7 +36,7 @@ def test_fetch_flights_keeps_points_without_speed_or_alt(monkeypatch):
 def test_fetch_flights_merges_multiple_urls(monkeypatch):
     monkeypatch.setenv("FLIGHT_DATA_URL", "http://example/a,http://example/b")
     monkeypatch.delenv("FLIGHT_DATA_PATH", raising=False)
-    monkeypatch.setenv("CLEAR_INCLUDE_COMMERCIAL", "1")
+    monkeypatch.setenv("LOTBOOK_INCLUDE_COMMERCIAL", "1")
 
     def fake_get(url, timeout=8):
         if url.endswith("/a"):
@@ -78,7 +78,7 @@ def test_snapshot_marks_unknown_fields():
 def test_fetch_flights_uses_opensky_when_no_feed(monkeypatch):
     monkeypatch.delenv("FLIGHT_DATA_URL", raising=False)
     monkeypatch.delenv("FLIGHT_DATA_PATH", raising=False)
-    monkeypatch.setenv("CLEAR_INCLUDE_COMMERCIAL", "1")
+    monkeypatch.setenv("LOTBOOK_INCLUDE_COMMERCIAL", "1")
     TrackerProviders._OPENSKY_LAST_REQUEST = 0.0
     TrackerProviders._OPENSKY_BACKOFF_UNTIL = 0.0
 
@@ -119,7 +119,7 @@ def test_fetch_flights_uses_opensky_when_no_feed(monkeypatch):
 def test_opensky_oauth_uses_bearer_token(monkeypatch):
     monkeypatch.delenv("FLIGHT_DATA_URL", raising=False)
     monkeypatch.delenv("FLIGHT_DATA_PATH", raising=False)
-    monkeypatch.setenv("CLEAR_INCLUDE_COMMERCIAL", "1")
+    monkeypatch.setenv("LOTBOOK_INCLUDE_COMMERCIAL", "1")
     monkeypatch.setenv("OPENSKY_CLIENT_ID", "client")
     monkeypatch.setenv("OPENSKY_CLIENT_SECRET", "secret")
     TrackerProviders._OPENSKY_LAST_REQUEST = 0.0
@@ -215,7 +215,7 @@ def test_opensky_min_refresh_invalid_value(monkeypatch):
     monkeypatch.delenv("FLIGHT_DATA_URL", raising=False)
     monkeypatch.delenv("FLIGHT_DATA_PATH", raising=False)
     monkeypatch.setenv("OPENSKY_MIN_REFRESH", "not-a-number")
-    monkeypatch.setenv("CLEAR_INCLUDE_COMMERCIAL", "1")
+    monkeypatch.setenv("LOTBOOK_INCLUDE_COMMERCIAL", "1")
     TrackerProviders._OPENSKY_BACKOFF_UNTIL = 0.0
     TrackerProviders._OPENSKY_LAST_REQUEST = 0.0
 

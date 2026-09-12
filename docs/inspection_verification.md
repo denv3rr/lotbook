@@ -1,13 +1,13 @@
 # Independent Inspection Verification
 
-This is the committed inspection process for Clear. It does not add a
+This is the committed inspection process for Lotbook. It does not add a
 general multi-agent reasoning product. It makes the specialist roles
 already named in `docs/standards_remediation_plan.md` executable as
 independent verifiers against the documentation corpus.
 
 ## Product boundary
 
-Clear is a local-first portfolio, analytics, and OSINT platform with a
+Lotbook is a local-first portfolio, analytics, and OSINT platform with a
 rules-based assistant surface. `docs/agent_git_standards.md` and the
 assistant constraints in `docs/us_gov_standards.md` / `docs/ai_assistant.md`
 are the seed of governed agent work. They are not an invitation to build a

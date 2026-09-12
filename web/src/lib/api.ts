@@ -8,9 +8,12 @@ const runtimeHost =
 const API_BASE =
   import.meta.env.VITE_API_BASE || `http://${runtimeHost}:8000`;
 const ENV_API_KEY = import.meta.env.VITE_API_KEY;
-const LOCAL_KEY = "clear_api_key";
-const SESSION_KEY = "clear_api_key_session";
+const LOCAL_KEY = "lotbook_api_key";
+const LEGACY_LOCAL_KEY = "clear_api_key";
+const SESSION_KEY = "lotbook_api_key_session";
+const LEGACY_SESSION_KEY = "clear_api_key_session";
 const ENCRYPTED_PREFIX = "enc:v1:";
+// IndexedDB name is a storage id. Renaming it would make existing encrypted keys unreadable.
 const CRYPTO_DB_NAME = "clear_browser_keys";
 const CRYPTO_DB_STORE = "keys";
 const CRYPTO_KEY_ID = "api-key-encryption-v1";
@@ -76,6 +79,20 @@ function getStorageCryptoKey(): Promise<CryptoKey> {
     });
   }
   return sessionCryptoKeyPromise;
+}
+
+function storageGet(store: Storage, primary: string, legacy: string): string | null {
+  return store.getItem(primary) ?? store.getItem(legacy);
+}
+
+function storageSet(store: Storage, primary: string, legacy: string, value: string): void {
+  store.setItem(primary, value);
+  store.removeItem(legacy);
+}
+
+function storageRemove(store: Storage, primary: string, legacy: string): void {
+  store.removeItem(primary);
+  store.removeItem(legacy);
 }
 
 function bytesToBase64(bytes: Uint8Array): string {
@@ -168,7 +185,7 @@ export async function getApiKey(): Promise<string | null> {
   if (runtimeApiKey) return runtimeApiKey;
   if (decryptedApiKey !== undefined) return decryptedApiKey;
   try {
-    const sessionValue = sessionStorage.getItem(SESSION_KEY);
+    const sessionValue = storageGet(sessionStorage, SESSION_KEY, LEGACY_SESSION_KEY);
     if (sessionValue) {
       try {
         const decrypted = await decryptApiKey(sessionValue);
@@ -177,7 +194,7 @@ export async function getApiKey(): Promise<string | null> {
           return decrypted;
         }
       } catch {
-        sessionStorage.removeItem(SESSION_KEY);
+        storageRemove(sessionStorage, SESSION_KEY, LEGACY_SESSION_KEY);
       }
     }
 
@@ -186,7 +203,7 @@ export async function getApiKey(): Promise<string | null> {
   }
 
   try {
-    const localValue = localStorage.getItem(LOCAL_KEY);
+    const localValue = storageGet(localStorage, LOCAL_KEY, LEGACY_LOCAL_KEY);
     if (localValue) {
       try {
         const decrypted = await decryptApiKey(localValue);
@@ -195,7 +212,7 @@ export async function getApiKey(): Promise<string | null> {
           return decrypted;
         }
       } catch {
-        localStorage.removeItem(LOCAL_KEY);
+        storageRemove(localStorage, LOCAL_KEY, LEGACY_LOCAL_KEY);
       }
     }
 
@@ -210,12 +227,12 @@ export async function getApiKey(): Promise<string | null> {
 export function getApiKeyScope(): ApiKeyScope {
   if (runtimeApiKey) return "memory";
   try {
-    if (sessionStorage.getItem(SESSION_KEY)) return "session";
+    if (storageGet(sessionStorage, SESSION_KEY, LEGACY_SESSION_KEY)) return "session";
   } catch {
     // Continue to device storage when session storage is blocked.
   }
   try {
-    if (localStorage.getItem(LOCAL_KEY)) return "local";
+    if (storageGet(localStorage, LOCAL_KEY, LEGACY_LOCAL_KEY)) return "local";
   } catch {
     // Environment configuration remains available when device storage is blocked.
   }
@@ -229,9 +246,9 @@ export async function setApiKey(
   try {
     const encrypted = await encryptApiKey(value);
     if (options.persist) {
-      localStorage.setItem(LOCAL_KEY, encrypted);
+      storageSet(localStorage, LOCAL_KEY, LEGACY_LOCAL_KEY, encrypted);
       try {
-        sessionStorage.removeItem(SESSION_KEY);
+        storageRemove(sessionStorage, SESSION_KEY, LEGACY_SESSION_KEY);
       } catch {
         // The newly persisted key remains authoritative.
       }
@@ -239,9 +256,9 @@ export async function setApiKey(
       decryptedApiKey = undefined;
       return "local";
     } else {
-      sessionStorage.setItem(SESSION_KEY, encrypted);
+      storageSet(sessionStorage, SESSION_KEY, LEGACY_SESSION_KEY, encrypted);
       try {
-        localStorage.removeItem(LOCAL_KEY);
+        storageRemove(localStorage, LOCAL_KEY, LEGACY_LOCAL_KEY);
       } catch {
         // The newly saved session key remains authoritative.
       }
@@ -257,12 +274,12 @@ export async function setApiKey(
     }
     runtimeApiKey = value;
     try {
-      localStorage.removeItem(LOCAL_KEY);
+      storageRemove(localStorage, LOCAL_KEY, LEGACY_LOCAL_KEY);
     } catch {
       // Page-memory storage remains available even when browser storage is blocked.
     }
     try {
-      sessionStorage.removeItem(SESSION_KEY);
+      storageRemove(sessionStorage, SESSION_KEY, LEGACY_SESSION_KEY);
     } catch {
       // Page-memory storage remains available even when browser storage is blocked.
     }
@@ -274,12 +291,12 @@ export function clearApiKey(): void {
   runtimeApiKey = null;
   decryptedApiKey = undefined;
   try {
-    localStorage.removeItem(LOCAL_KEY);
+    storageRemove(localStorage, LOCAL_KEY, LEGACY_LOCAL_KEY);
   } catch {
     // Continue clearing independent storage scopes.
   }
   try {
-    sessionStorage.removeItem(SESSION_KEY);
+    storageRemove(sessionStorage, SESSION_KEY, LEGACY_SESSION_KEY);
   } catch {
     // Page memory has still been cleared.
   }
@@ -288,7 +305,7 @@ export function clearApiKey(): void {
 export function getAuthHint(): string {
   const scope = getApiKeyScope();
   if (scope === "env") {
-    return "API key is set in the environment. Verify CLEAR_WEB_API_KEY matches.";
+    return "API key is set in the environment. Verify LOTBOOK_WEB_API_KEY matches.";
   }
   if (scope === "local" || scope === "session") {
     return "Check the API key in System settings or clear and re-enter it.";
@@ -296,7 +313,7 @@ export function getAuthHint(): string {
   if (scope === "memory") {
     return "The API key is active for this page only. Re-enter it after a reload.";
   }
-  return "Set an API key in System settings if CLEAR_WEB_API_KEY is enabled.";
+  return "Set an API key in System settings if LOTBOOK_WEB_API_KEY is enabled.";
 }
 
 function _isAbortError(err: unknown): boolean {
@@ -395,7 +412,7 @@ type WriteMethod = "POST" | "PATCH" | "PUT" | "DELETE";
 
 async function apiWrite<T>(path: string, method: WriteMethod, body?: unknown): Promise<T> {
   const headers: Record<string, string> = { "Content-Type": "application/json" };
-  if (path === "/api/application/shutdown") headers["X-Clear-Shutdown"] = "confirm";
+  if (path === "/api/application/shutdown") headers["X-Lotbook-Shutdown"] = "confirm";
   const apiKey = await getApiKey();
   if (apiKey) {
     headers["X-API-Key"] = apiKey;

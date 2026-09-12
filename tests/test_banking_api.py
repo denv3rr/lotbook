@@ -19,13 +19,13 @@ def api(tmp_path, monkeypatch):
         with sessions() as session:
             yield session
     app.dependency_overrides[clients.get_db] = database
-    monkeypatch.setenv("CLEAR_WEB_API_KEY", "isolated-verification-key")
+    monkeypatch.setenv("LOTBOOK_WEB_API_KEY", "isolated-verification-key")
     with TestClient(app, headers={"X-API-Key": "isolated-verification-key"}) as client:
         yield client
     engine.dispose()
 
 
-def client_id(api, name="Clear workflow verification"):
+def client_id(api, name="Lotbook workflow verification"):
     result = api.post("/api/clients", json={"name": name, "accounts": []})
     assert result.status_code == 200
     return result.json()["client_id"]

@@ -69,7 +69,7 @@ test.describe("globe fail-safe visual regression", () => {
     const fixture = loadCapturedIntelGlobeFixture();
     await page.emulateMedia({ reducedMotion: "reduce" });
     await page.addInitScript((sceneState) => {
-      window.localStorage.setItem("clear_scene_state", JSON.stringify(sceneState));
+      window.localStorage.setItem("lotbook_scene_state", JSON.stringify(sceneState));
     }, {
       version: 2,
       cameraPreset: "focus",
@@ -130,7 +130,7 @@ test.describe("globe fail-safe visual regression", () => {
     const fixture = loadCapturedIntelGlobeFixture();
     await page.emulateMedia({ reducedMotion: "reduce" });
     await page.addInitScript(() => {
-      window.localStorage.setItem("clear_scene_state", JSON.stringify({
+      window.localStorage.setItem("lotbook_scene_state", JSON.stringify({
         cameraPreset: "free",
         intelCategories: ["stale-filter"],
         intelIndustry: "all",
@@ -173,7 +173,7 @@ test.describe("globe fail-safe visual regression", () => {
     await expect(page.getByTestId("globe-layer-regions")).toHaveAttribute("aria-pressed", "true");
     await expect(page.getByTestId("globe-layer-hotspots")).toHaveAttribute("aria-pressed", "true");
     const storedState = await page.evaluate(() =>
-      JSON.parse(window.localStorage.getItem("clear_scene_state") || "{}")
+      JSON.parse(window.localStorage.getItem("lotbook_scene_state") || "{}")
     );
     expect(storedState).toMatchObject({
       version: 2,

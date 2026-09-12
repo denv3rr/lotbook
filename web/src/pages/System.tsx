@@ -188,7 +188,7 @@ export default function System() {
 
   const onClearCache = () => {
     openConfirm(
-      "Clear report cache",
+      "Lotbook report cache",
       "Clear the report cache? This will remove cached report artifacts.",
       async () => {
         try {
@@ -574,7 +574,7 @@ export default function System() {
               value={apiKeyInput}
               onChange={(event) => setApiKeyInput(event.target.value)}
               className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-950/80 px-3 py-2 text-sm text-slate-100 focus:border-green-400/60 focus:outline-none"
-              placeholder="Enter CLEAR_WEB_API_KEY"
+              placeholder="Enter LOTBOOK_WEB_API_KEY"
             />
           </label>
           <label className="flex items-center gap-2 text-xs text-slate-300">

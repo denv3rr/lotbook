@@ -8,22 +8,26 @@ const __dirname = path.dirname(__filename);
 const ROOT_DIR = path.resolve(__dirname, "..");
 const ROOT_ENV_PATH = path.join(ROOT_DIR, ".env");
 
-function loadRootEnvValue(name: string): string {
-  const fromProcess = process.env[name];
-  if (fromProcess) return fromProcess;
+function loadRootEnvValue(...names: string[]): string {
+  for (const name of names) {
+    const fromProcess = process.env[name];
+    if (fromProcess) return fromProcess;
+  }
   if (!fs.existsSync(ROOT_ENV_PATH)) return "";
   const content = fs.readFileSync(ROOT_ENV_PATH, "utf-8");
-  for (const line of content.split(/\r?\n/)) {
-    const trimmed = line.trim();
-    if (!trimmed || trimmed.startsWith("#")) continue;
-    const [key, ...rest] = trimmed.split("=");
-    if (key !== name) continue;
-    return rest.join("=").trim().replace(/^['"]|['"]$/g, "");
+  for (const name of names) {
+    for (const line of content.split(/\r?\n/)) {
+      const trimmed = line.trim();
+      if (!trimmed || trimmed.startsWith("#")) continue;
+      const [key, ...rest] = trimmed.split("=");
+      if (key !== name) continue;
+      return rest.join("=").trim().replace(/^['"]|['"]$/g, "");
+    }
   }
   return "";
 }
 
-const API_KEY = loadRootEnvValue("CLEAR_WEB_API_KEY");
+const API_KEY = loadRootEnvValue("LOTBOOK_WEB_API_KEY", "CLEAR_WEB_API_KEY");
 const API_BASE = "http://127.0.0.1:8000";
 
 export default defineConfig({
@@ -42,7 +46,7 @@ export default defineConfig({
       cwd: ROOT_DIR,
       env: {
         ...process.env,
-        CLEAR_WEB_API_KEY: API_KEY
+        LOTBOOK_WEB_API_KEY: API_KEY
       }
     },
     {

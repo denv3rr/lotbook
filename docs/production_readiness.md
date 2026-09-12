@@ -26,15 +26,15 @@ gates. Do not treat local activity history as tamper-proof audit evidence.
 
 ## Create an encrypted backup
 
-1. Run the local managed launcher and configure `CLEAR_WEB_API_KEY` and the UI
+1. Run the local managed launcher and configure `LOTBOOK_WEB_API_KEY` and the UI
    key. Open System, then **Download encrypted backup**.
 2. Supply and repeat a unique 12-128 character passphrase, then confirm. Store
    it separately: there is no passphrase recovery service.
-3. Protect the downloaded `.clearbackup` file and verify a recovery candidate
+3. Protect the downloaded `.lotbookbackup` file and verify a recovery candidate
    before relying on it. A download starting is not proof of durable storage.
 
 The API is `POST /api/application/backup`, authenticated with `X-API-Key`,
-explicit `X-Clear-Backup: confirm`, and JSON `{ "confirm": true, "passphrase":
+explicit `X-Lotbook-Backup: confirm`, and JSON `{ "confirm": true, "passphrase":
 "..." }`. It requires loopback access and a configured key even when other
 local API routes are open. No caller-supplied database path is accepted. One
 snapshot per process is allowed at a time; response caching is disabled.
@@ -55,7 +55,7 @@ implementation is not a FIPS validation claim.
 From the repository root, with dependencies installed:
 
 ```powershell
-python scripts/stage_recovery.py C:\Backups\snapshot.clearbackup C:\Recovery\candidate.db
+python scripts/stage_recovery.py C:\Backups\snapshot.lotbookbackup C:\Recovery\candidate.db
 ```
 
 Use an existing protected destination directory and a **new** filename. The

@@ -53,7 +53,7 @@ What the source says:
 - It also notes that disputed areas and worldview variants may need separate
   treatment.
 
-Approved use in Clear:
+Approved use in Lotbook:
 
 - base country outlines
 - background country fills
@@ -97,7 +97,7 @@ What the sources say:
 - NIFC says Wildland Fire Open Data is the public fire perimeter source and the
   go-to source for perimeter maps.
 
-Approved use in Clear:
+Approved use in Lotbook:
 
 - reviewed U.S. wildfire perimeter polygons
 - perimeter timeline playback when source timestamps are preserved
@@ -129,7 +129,7 @@ What the source says:
 - RT and URT detections are removed when corresponding NRT detections are
   processed or after aging out.
 
-Approved use in Clear:
+Approved use in Lotbook:
 
 - point detections
 - heat/activity overlays
@@ -166,7 +166,7 @@ What the sources say:
 - FEMA IPAWS is the broader U.S. all-hazards CAP distribution path, but feed
   access requires an MOA/onboarding path.
 
-Approved use in Clear:
+Approved use in Lotbook:
 
 - U.S. alert polygons and zone-based overlays
 - U.S. weather/disaster public warning layers
@@ -196,7 +196,7 @@ What the source says:
 - GDELT explicitly warns that large-scale automated georeferencing will always
   contain errors.
 
-Approved use in Clear:
+Approved use in Lotbook:
 
 - contextual news geography
 - supporting heat/cell/regional overlays
@@ -239,7 +239,7 @@ Repo integration targets:
 
 ## Current Honest Gap
 
-Clear does not yet have a reviewed structured global source for precise
+Lotbook does not yet have a reviewed structured global source for precise
 conflict polygons, strike footprints, food-shortage extents, or water-shortage
 areas. Until that changes, those overlays should remain regional, cell-based,
 or explicitly inferred.

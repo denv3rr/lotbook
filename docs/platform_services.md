@@ -1,9 +1,9 @@
 # Platform Service Templates
 
-Use these templates to run the CLEAR API as a background service. The web UI can be served by a reverse proxy or by a separate front-end service (Vite in dev).
+Use these templates to run the LOTBOOK API as a background service. The web UI can be served by a reverse proxy or by a separate front-end service (Vite in dev).
 
 Notes:
-- Use `CLEAR_WEB_API_KEY` to gate API access in production and set it in service environments.
+- Use `LOTBOOK_WEB_API_KEY` to gate API access in production and set it in service environments.
 - Load `.env` in your service environment if you rely on feed credentials.
 
 ## Windows (NSSM)
@@ -12,34 +12,34 @@ Notes:
 2) Create the service:
 
 ```powershell
-nssm install ClearApi "C:\Path\To\Python\python.exe" "-m uvicorn web_api.app:app --host 127.0.0.1 --port 8000"
-nssm set ClearApi AppDirectory "C:\Path\To\clear"
-nssm set ClearApi AppStdout "C:\Path\To\clear\data\logs\api.log"
-nssm set ClearApi AppStderr "C:\Path\To\clear\data\logs\api.log"
+nssm install LotbookApi "C:\Path\To\Python\python.exe" "-m uvicorn web_api.app:app --host 127.0.0.1 --port 8000"
+nssm set LotbookApi AppDirectory "C:\Path\To\lotbook"
+nssm set LotbookApi AppStdout "C:\Path\To\lotbook\data\logs\api.log"
+nssm set LotbookApi AppStderr "C:\Path\To\lotbook\data\logs\api.log"
 ```
 
 3) Start the service:
 
 ```powershell
-nssm start ClearApi
+nssm start LotbookApi
 ```
 
 ## Linux (systemd)
 
-Create `/etc/systemd/system/clear-api.service`:
+Create `/etc/systemd/system/lotbook-api.service`:
 
 ```ini
 [Unit]
-Description=CLEAR API Service
+Description=LOTBOOK API Service
 After=network.target
 
 [Service]
 Type=simple
-WorkingDirectory=/opt/clear
+WorkingDirectory=/opt/lotbook
 ExecStart=/usr/bin/python3 -m uvicorn web_api.app:app --host 127.0.0.1 --port 8000
 Restart=always
 RestartSec=3
-Environment=CLEAR_WEB_API_KEY=change_me
+Environment=LOTBOOK_WEB_API_KEY=change_me
 
 [Install]
 WantedBy=multi-user.target
@@ -49,13 +49,13 @@ Enable and start:
 
 ```bash
 sudo systemctl daemon-reload
-sudo systemctl enable clear-api
-sudo systemctl start clear-api
+sudo systemctl enable lotbook-api
+sudo systemctl start lotbook-api
 ```
 
 ## macOS (launchd)
 
-Create `~/Library/LaunchAgents/com.seperet.clear-api.plist`:
+Create `~/Library/LaunchAgents/com.seperet.lotbook-api.plist`:
 
 ```xml
 <?xml version="1.0" encoding="UTF-8"?>
@@ -63,7 +63,7 @@ Create `~/Library/LaunchAgents/com.seperet.clear-api.plist`:
 <plist version="1.0">
   <dict>
     <key>Label</key>
-    <string>com.seperet.clear-api</string>
+    <string>com.seperet.lotbook-api</string>
     <key>ProgramArguments</key>
     <array>
       <string>/usr/bin/python3</string>
@@ -76,13 +76,13 @@ Create `~/Library/LaunchAgents/com.seperet.clear-api.plist`:
       <string>8000</string>
     </array>
     <key>WorkingDirectory</key>
-    <string>/Users/you/code/clear</string>
+    <string>/Users/you/code/lotbook</string>
     <key>RunAtLoad</key>
     <true/>
     <key>StandardOutPath</key>
-    <string>/Users/you/code/clear/data/logs/api.log</string>
+    <string>/Users/you/code/lotbook/data/logs/api.log</string>
     <key>StandardErrorPath</key>
-    <string>/Users/you/code/clear/data/logs/api.log</string>
+    <string>/Users/you/code/lotbook/data/logs/api.log</string>
   </dict>
 </plist>
 ```
@@ -90,5 +90,5 @@ Create `~/Library/LaunchAgents/com.seperet.clear-api.plist`:
 Load it:
 
 ```bash
-launchctl load ~/Library/LaunchAgents/com.seperet.clear-api.plist
+launchctl load ~/Library/LaunchAgents/com.seperet.lotbook-api.plist
 ```

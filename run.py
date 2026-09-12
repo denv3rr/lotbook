@@ -268,9 +268,9 @@ if __name__ == "__main__":
 
 
     try:
-        from core.app import ClearApp
+        from core.app import LotbookApp
         
-        session = ClearApp()
+        session = LotbookApp()
         session.run()
         
     except KeyboardInterrupt:

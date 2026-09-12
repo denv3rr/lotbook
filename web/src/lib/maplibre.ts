@@ -9,11 +9,11 @@ let cached: MapLibre | null = null;
 
 function ensureMapLibreStylesheet() {
   if (typeof document === "undefined") return;
-  if (document.querySelector("link[data-clear-maplibre-css]")) return;
+  if (document.querySelector("link[data-lotbook-maplibre-css]")) return;
   const link = document.createElement("link");
   link.rel = "stylesheet";
   link.href = mapLibreCssUrl;
-  link.dataset.clearMaplibreCss = "true";
+  link.dataset.lotbookMaplibreCss = "true";
   document.head.appendChild(link);
 }
 

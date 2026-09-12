@@ -39,7 +39,9 @@ def record_process(path: Path, name: str, pid: int) -> None:
 
 
 def own_control() -> tuple[Path, dict] | None:
-    raw = os.environ.get("CLEAR_STACK_CONTROL")
+    from utils.identity import getenv
+
+    raw = getenv("LOTBOOK_STACK_CONTROL") or None
     if not raw:
         return None
     path = Path(raw).resolve()

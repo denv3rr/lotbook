@@ -86,7 +86,7 @@ function ShellFrame({ children }: AppShellProps) {
     healthMessages.push(`API health warning: ${warning}`);
   }
 
-  if (stopping) return <main className="bank-stopped"><h1>Clear is shutting down.</h1><p>The shutdown request was accepted. Active API work will finish, then the dashboard server will stop.</p><p>You can close this browser tab. Your saved records remain on this computer.</p></main>;
+  if (stopping) return <main className="bank-stopped"><h1>Lotbook is shutting down.</h1><p>The shutdown request was accepted. Active API work will finish, then the dashboard server will stop.</p><p>You can close this browser tab. Your saved records remain on this computer.</p></main>;
 
   return (
     <div className="min-h-screen text-slate-100 overflow-x-hidden bg-black">

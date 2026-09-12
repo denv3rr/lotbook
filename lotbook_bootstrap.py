@@ -84,9 +84,9 @@ def main() -> int:
     if not ensure_runtime_dependencies(auto_install="--no-install" not in sys.argv[1:]):
         return 1
 
-    import clearctl
+    import lotbookctl
 
-    return clearctl.main()
+    return lotbookctl.main()
 
 
 if __name__ == "__main__":

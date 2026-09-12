@@ -90,8 +90,8 @@ def launch_gui_in_venv(
     _emit(status_hook, ">> GUI setup: launching tracker window")
     cmd = [str(python_exe), "-m", "utils.gui_launcher"]
     env = os.environ.copy()
-    env["CLEAR_GUI_REFRESH"] = str(refresh_seconds)
-    env["CLEAR_GUI_PAUSED"] = "1" if start_paused else "0"
+    env["LOTBOOK_GUI_REFRESH"] = str(refresh_seconds)
+    env["LOTBOOK_GUI_PAUSED"] = "1" if start_paused else "0"
     result = subprocess.run(cmd, env=env)
     if result.returncode != 0:
         return "GUI process exited with an error."

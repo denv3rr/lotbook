@@ -20,13 +20,13 @@ class StartupScreen:
     def render(self):
 
         # --- 1. ASCII Art ---
-        ascii_art_clear = r"""
- ██████╗██╗     ███████╗ █████╗ ██████╗ 
-██╔════╝██║     ██╔════╝██╔══██╗██╔══██╗
-██║     ██║     █████╗  ███████║██████╔╝
-██║     ██║     ██╔══╝  ██╔══██║██╔══██╗
-╚██████╗███████╗███████╗██║  ██║██║  ██║
- ╚═════╝╚══════╝╚══════╝╚═╝  ╚═╝╚═╝  ╚═╝
+        ascii_art_lotbook = r"""
+██╗      ██████╗ ████████╗██████╗  ██████╗  ██████╗ ██╗  ██╗
+██║     ██╔═══██╗╚══██╔══╝██╔══██╗██╔═══██╗██╔═══██╗██║ ██╔╝
+██║     ██║   ██║   ██║   ██████╔╝██║   ██║██║   ██║█████╔╝ 
+██║     ██║   ██║   ██║   ██╔══██╗██║   ██║██║   ██║██╔═██╗ 
+███████╗╚██████╔╝   ██║   ██████╔╝╚██████╔╝╚██████╔╝██║  ██╗
+╚══════╝ ╚═════╝    ╚═╝   ╚═════╝  ╚═════╝  ╚═════╝ ╚═╝  ╚═╝
 """
 
         ascii_art_divider = r"""
@@ -67,7 +67,7 @@ class StartupScreen:
 
         # Row 1: Centered ASCII Art
         main_layout_grid.add_row(Align.center("[warning]⚠  WORK IN PROGRESS ⚠[/warning]"))
-        main_layout_grid.add_row(Align.center(ascii_art_clear))
+        main_layout_grid.add_row(Align.center(ascii_art_lotbook))
         main_layout_grid.add_row(Align.center("[blue]Prices. Books. Analysis.[/blue]"))
 
         # --- 5. Encapsulate in a Rich panel with fixed width 200 ---

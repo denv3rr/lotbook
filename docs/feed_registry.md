@@ -43,7 +43,7 @@ This does not advance or reorder the unimplemented hazard-source priorities.
 
 ## Reviewed Priority Sources Not Yet Implemented
 
-| Source | Type | Value To Clear | Notes |
+| Source | Type | Value To Lotbook | Notes |
 | --- | --- | --- | --- |
 | ReliefWeb API | Structured humanitarian/disaster reports | Better coverage of shortages, displacement, crisis operations, and field reporting | Requires approved `appname` as of November 1, 2025. |
 | NASA EONET v3 | Curated natural event metadata | Gives event IDs plus point/polygon GeoJSON and source/category filters | Good bridge between narrative intel and reviewed natural-event objects. |
@@ -57,7 +57,7 @@ These sources are not part of the current source-onboarding order and must not
 be implemented ahead of ReliefWeb/EONET/FIRMS/NWS/USGS without updating
 `docs/osint_globe_phase_2_plan.md`.
 
-| Source | Type | Value To Clear | Notes |
+| Source | Type | Value To Lotbook | Notes |
 | --- | --- | --- | --- |
 | ACLED API | Structured political violence, demonstration, and strategic-development events | Better event-level conflict coverage for Myanmar, Ukraine, Sahel, Middle East, and other active theaters than article mentions alone | Requires myACLED account plus OAuth for programmatic access; preserve event date, event type, actors, admin fields, fatalities, source, and `geo_precision`. |
 

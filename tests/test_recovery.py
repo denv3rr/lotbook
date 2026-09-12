@@ -53,6 +53,17 @@ def test_snapshot_rejects_size_limit_and_broken_relations(database, monkeypatch)
         encrypted_snapshot(database, "recovery-test-passphrase")
 
 
+def test_restore_accepts_legacy_clear_backup_magic(database, tmp_path, monkeypatch):
+    import utils.recovery as recovery
+
+    monkeypatch.setattr(recovery, "MAGIC", recovery.LEGACY_MAGIC)
+    archive = encrypted_snapshot(database, "recovery-test-passphrase")
+    assert archive.startswith(recovery.LEGACY_MAGIC)
+    monkeypatch.undo()
+    recovered = tmp_path / "legacy-recovered.db"
+    restore_to_new_file(archive, "recovery-test-passphrase", recovered)
+
+
 def test_recovery_authentication_and_input_guards(database, tmp_path):
     archive = encrypted_snapshot(database, "recovery-test-passphrase")
     for damaged, password in [(archive, "wrong-passphrase-value"), (archive[:-1] + bytes([archive[-1] ^ 1]), "recovery-test-passphrase"), (b"invalid", "recovery-test-passphrase")]:
@@ -71,8 +82,8 @@ def test_backup_api_requires_key_locality_and_confirmation(database, tmp_path, m
     app.include_router(router)
     app.dependency_overrides[canonical_database] = lambda: database
     payload = {"confirm": True, "passphrase": "recovery-test-passphrase"}
-    headers = {"X-API-Key": "isolated-recovery-key", "X-Clear-Backup": "confirm"}
-    monkeypatch.setenv("CLEAR_WEB_API_KEY", headers["X-API-Key"])
+    headers = {"X-API-Key": "isolated-recovery-key", "X-Lotbook-Backup": "confirm"}
+    monkeypatch.setenv("LOTBOOK_WEB_API_KEY", headers["X-API-Key"])
     with TestClient(app, client=("127.0.0.1", 40001)) as client:
         assert client.post("/api/application/backup", json=payload).status_code == 401
         assert client.post("/api/application/backup", json=payload, headers={"X-API-Key": headers["X-API-Key"]}).status_code == 400
@@ -81,8 +92,8 @@ def test_backup_api_requires_key_locality_and_confirmation(database, tmp_path, m
         assert result.status_code == 200
         assert result.headers["cache-control"] == "no-store"
         restore_to_new_file(result.content, payload["passphrase"], tmp_path / "api-recovered.db")
-        monkeypatch.delenv("CLEAR_WEB_API_KEY")
+        monkeypatch.delenv("LOTBOOK_WEB_API_KEY")
         assert client.post("/api/application/backup", json=payload, headers=headers).status_code == 409
-    monkeypatch.setenv("CLEAR_WEB_API_KEY", headers["X-API-Key"])
+    monkeypatch.setenv("LOTBOOK_WEB_API_KEY", headers["X-API-Key"])
     with TestClient(app, client=("192.0.2.1", 40001)) as client:
         assert client.post("/api/application/backup", json=payload, headers=headers).status_code == 403

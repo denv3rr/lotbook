@@ -4,7 +4,7 @@ These standards keep CLI, API, and web UI modular and future-proof.
 
 ## Product boundary
 
-Clear is a local-first advisory, client-management, portfolio, analytics, and OSINT platform with a
+Lotbook is a local-first advisory, client-management, portfolio, analytics, and OSINT platform with a
 rules-based assistant surface. It is not a general multi-agent reasoning
 framework, model-training system, or autonomous dispatcher.
 

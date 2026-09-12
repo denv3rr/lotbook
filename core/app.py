@@ -11,7 +11,7 @@ from modules.client_mgr.manager import ClientManager
 from interfaces.settings import SettingsModule
 from interfaces.assistant import AssistantModule
 
-class ClearApp:
+class LotbookApp:
     """
     The Central Controller.
     Maintains the application loop and routes actions to sub-modules.

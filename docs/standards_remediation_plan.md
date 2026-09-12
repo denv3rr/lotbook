@@ -99,7 +99,7 @@ Closed in the current pass:
   databases are out of bounds.
 - Report synthesis tests no longer pass invented `confidence` strings.
 - Startup `.env` load failures are typed (`ImportError`) or logged (`OSError`)
-  instead of `except Exception: pass` in `clearctl.py` and `run_web.py`.
+  instead of `except Exception: pass` in `lotbookctl.py` and `run_web.py`.
 
 Still open:
 - Several Python tests still rely on in-memory payloads or monkeypatched

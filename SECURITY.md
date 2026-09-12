@@ -21,7 +21,7 @@ is on `main`.
 ## What this repo already requires
 
 - No secrets, `.env` files, databases, or local runtime data in git
-- API key auth when `CLEAR_WEB_API_KEY` is set
+- API key auth when `LOTBOOK_WEB_API_KEY` is set
 - Destructive maintenance routes require an explicit confirm payload
 - Dependency alerts are handled through Dependabot
 

@@ -117,7 +117,7 @@ class AssistantModule:
         return Panel(body, title="[bold]Context[/bold]", box=box.SQUARE)
 
     def _ask_question(self) -> None:
-        question = InputSafe.get_string("Ask Clear")
+        question = InputSafe.get_string("Ask Lotbook")
         if not question.strip():
             return
         sources = self._split_list(self.context.get("sources"))

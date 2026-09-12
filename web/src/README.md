@@ -1,6 +1,6 @@
 # Web Source
 
-Frontend source code for the Clear web UI.
+Frontend source code for the Lotbook web UI.
 
 ## Layout
 - `App.tsx`: App shell and routes.

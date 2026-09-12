@@ -15,7 +15,7 @@ Status: Proposed on March 18, 2026. Execution is gated by
 
 ## Intent
 
-Move Clear from a page/card-heavy data application into a globe-first intelligence surface where the world itself becomes the canvas for trackers, conflict, weather, news, cargo, and regional emotion signals.
+Move Lotbook from a page/card-heavy data application into a globe-first intelligence surface where the world itself becomes the canvas for trackers, conflict, weather, news, cargo, and regional emotion signals.
 
 This is not a pure styling pass. It is an architecture, data-contract, and interaction redesign that must preserve:
 

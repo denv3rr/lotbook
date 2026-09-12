@@ -64,7 +64,7 @@ Reference: [Sharpe 1964](https://doi.org/10.2307/2977928).
 
 Background: [RiskMetrics 1996](https://www.msci.com/research-and-insights/paper/1996-riskmetrics-technical-document).
 The inclusive empirical tail convention is not a fractional-tail-weighted ES
-estimator. Clear's 95%/99% period-return summaries do **not** implement
+estimator. Lotbook's 95%/99% period-return summaries do **not** implement
 [Basel MAR33](https://www.bis.org/committees/bcbs/basel-framework/standard/mar/33/inforce/2023-01-01/published/2020-06-05):
 that framework requires 97.5% regulatory ES, stress calibration, liquidity
 horizons, model approval and other controls. Do not use this output for capital

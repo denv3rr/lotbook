@@ -32,7 +32,7 @@ def _setup_temp_db(request, monkeypatch):
 def client(request, monkeypatch):
     session_local, engine, db_path = _setup_temp_db(request, monkeypatch)
     db_management.create_db_and_tables()
-    monkeypatch.setenv("CLEAR_WEB_API_KEY", "test_key")
+    monkeypatch.setenv("LOTBOOK_WEB_API_KEY", "test_key")
     try:
         yield TestClient(app, headers={"X-API-Key": "test_key"}), session_local
     finally:

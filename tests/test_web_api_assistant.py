@@ -9,7 +9,7 @@ from web_api.routes import assistant as assistant_routes
 
 
 def _api_headers():
-    key = os.getenv("CLEAR_WEB_API_KEY")
+    key = os.getenv("LOTBOOK_WEB_API_KEY")
     return {"X-API-Key": key} if key else {}
 
 
@@ -240,7 +240,7 @@ def test_assistant_export_endpoint_returns_payload():
 
 
 def test_assistant_query_requires_api_key_when_set(monkeypatch):
-    monkeypatch.setenv("CLEAR_WEB_API_KEY", "secret")
+    monkeypatch.setenv("LOTBOOK_WEB_API_KEY", "secret")
     client = TestClient(web_app.app)
     resp = client.post(
         "/api/assistant/query",
@@ -251,7 +251,7 @@ def test_assistant_query_requires_api_key_when_set(monkeypatch):
 
 
 def test_assistant_export_requires_api_key_when_set(monkeypatch):
-    monkeypatch.setenv("CLEAR_WEB_API_KEY", "secret")
+    monkeypatch.setenv("LOTBOOK_WEB_API_KEY", "secret")
     client = TestClient(web_app.app)
     resp = client.post(
         "/api/assistant/history/export",

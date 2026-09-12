@@ -3,20 +3,20 @@
 This document summarizes launcher behavior to keep startup/stop flows reliable and non-interactive.
 
 ## Commands
-- `clear` is the preferred interactive command after the one-time PowerShell
+- `lotbook` is the preferred interactive command after the one-time PowerShell
   setup documented in the root README. With no arguments it starts API + UI in
   the foreground and opens the browser.
-- `.\clear` is the no-setup PowerShell form from the repository directory.
-- `clear stop` stops background services and verifies port release.
-- `clear cli` launches the CLI.
-- `python clear_bootstrap.py start` is the explicit automation/CI form when
+- `.\lotbook` is the no-setup PowerShell form from the repository directory.
+- `lotbook stop` stops background services and verifies port release.
+- `lotbook cli` launches the CLI.
+- `python lotbook_bootstrap.py start` is the explicit automation/CI form when
   automatic verified dependency bootstrap is desired.
 
-Running `clear_bootstrap.py` without a subcommand is equivalent to `start`. The
+Running `lotbook_bootstrap.py` without a subcommand is equivalent to `start`. The
 standard-library bootstrap changes to the repository root before importing the
 application and installs approved runtime dependencies from the hash-verified
 `requirements-web.lock` only when they are missing. Startup flags can be passed
-without repeating the subcommand, such as `clear --detach --no-open`;
+without repeating the subcommand, such as `lotbook --detach --no-open`;
 `--no-install` makes missing dependencies a hard stop instead. Normal starts
 reuse the existing environment, and Vite compiles changed frontend modules
 incrementally. No manual production build is required for local use.
@@ -28,10 +28,10 @@ After an approved runtime pin change, regenerate it with
 test suite checks that these pins remain aligned with `requirements.txt`.
 
 PowerShell reserves `clear` as a built-in terminal-clearing alias. The explicit
-`.\clear.ps1 install-command` setup replaces that alias in the current-user
-profile with the Clear launcher. `Clear-Host` and `cls` remain available, and
-the command can be run from any working directory. The setup can be rerun
-safely to refresh the checkout path.
+`.\lotbook.ps1 install-command` setup adds a `lotbook` function to the
+current-user profile and does not replace `clear`. The command can be run from
+any working directory. The setup can be rerun safely to refresh the checkout
+path and to remove an older Clear launcher block.
 
 ## Startup Guarantees
 - Startup performs API health checks and fails fast if the API cannot come up.
@@ -67,5 +67,5 @@ The default browser suite excludes these mutating tests. No operator database
 is used. Test runtime artifacts are retained locally for diagnosis.
 
 ## Diagnostics
-- `clear status` reports health and running processes.
-- `clear doctor` validates deps, ports, and health checks.
+- `lotbook status` reports health and running processes.
+- `lotbook doctor` validates deps, ports, and health checks.

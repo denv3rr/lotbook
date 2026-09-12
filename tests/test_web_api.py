@@ -21,7 +21,7 @@ from web_api.routes import scene as scene_routes
 from web_api.routes import trackers as tracker_routes
 
 def _api_headers():
-    key = os.getenv("CLEAR_WEB_API_KEY")
+    key = os.getenv("LOTBOOK_WEB_API_KEY")
     return {"X-API-Key": key} if key else {}
 
 
@@ -33,7 +33,7 @@ def test_health_endpoint():
 
 
 def test_health_endpoint_requires_key(monkeypatch):
-    monkeypatch.setenv("CLEAR_WEB_API_KEY", "test_key")
+    monkeypatch.setenv("LOTBOOK_WEB_API_KEY", "test_key")
     client = TestClient(web_app.app)
     resp = client.get("/api/health")
     assert resp.status_code == 401
@@ -52,7 +52,7 @@ def test_health_endpoint_requires_key(monkeypatch):
     ],
 )
 def test_protected_endpoints_require_key(monkeypatch, path, method, body):
-    monkeypatch.setenv("CLEAR_WEB_API_KEY", "secret")
+    monkeypatch.setenv("LOTBOOK_WEB_API_KEY", "secret")
     client = TestClient(web_app.app)
     request = getattr(client, method)
     resp = request(path) if body is None else request(path, json=body)
@@ -315,7 +315,7 @@ def test_osint_tracker_scene_endpoint_stubbed():
 
 
 def test_osint_tracker_scene_rejects_invalid_bbox(monkeypatch):
-    monkeypatch.setenv("CLEAR_WEB_API_KEY", "secret")
+    monkeypatch.setenv("LOTBOOK_WEB_API_KEY", "secret")
     client = TestClient(web_app.app)
     resp = client.get(
         "/api/osint/scene/trackers?bbox=1,2,3",
@@ -326,7 +326,7 @@ def test_osint_tracker_scene_rejects_invalid_bbox(monkeypatch):
 
 
 def test_osint_tracker_scene_requires_key(monkeypatch):
-    monkeypatch.setenv("CLEAR_WEB_API_KEY", "secret")
+    monkeypatch.setenv("LOTBOOK_WEB_API_KEY", "secret")
     client = TestClient(web_app.app)
     resp = client.get("/api/osint/scene/trackers")
     assert resp.status_code == 401
@@ -428,7 +428,7 @@ def test_osint_intel_scene_endpoint_stubbed():
 
 
 def test_osint_intel_scene_requires_key(monkeypatch):
-    monkeypatch.setenv("CLEAR_WEB_API_KEY", "secret")
+    monkeypatch.setenv("LOTBOOK_WEB_API_KEY", "secret")
     client = TestClient(web_app.app)
     resp = client.get("/api/osint/scene/intel")
     assert resp.status_code == 401
@@ -546,7 +546,7 @@ def test_osint_overview_scene_survives_intel_failure():
 
 
 def test_osint_overview_scene_requires_key(monkeypatch):
-    monkeypatch.setenv("CLEAR_WEB_API_KEY", "secret")
+    monkeypatch.setenv("LOTBOOK_WEB_API_KEY", "secret")
     client = TestClient(web_app.app)
     resp = client.get("/api/osint/scene/overview")
     assert resp.status_code == 401

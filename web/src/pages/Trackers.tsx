@@ -405,7 +405,7 @@ export function TrackersPanel() {
     }
     return { ...searchResults, points: next, count: next.length };
   }, [searchResults, includeCommercial, includePrivate, categoryFilter]);
-  const authHint = "Check CLEAR_WEB_API_KEY + localStorage clear_api_key.";
+  const authHint = "Check LOTBOOK_WEB_API_KEY + localStorage lotbook_api_key.";
   const errorMessages = [
     paused ? "Tracker updates paused." : null,
     pollError
@@ -1734,7 +1734,7 @@ export function TrackersPanel() {
                       onClick={() => setGeofences([])}
                       className="rounded-full border border-slate-700 px-3 py-1 text-[11px] text-slate-400 hover:text-slate-200"
                     >
-                      Clear
+                      Lotbook
                     </button>
                   ) : null}
                 </div>

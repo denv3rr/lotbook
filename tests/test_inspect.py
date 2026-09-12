@@ -62,9 +62,12 @@ def test_verify_rejects_multi_agent_framework_claim(tmp_path):
 def test_isolated_harness_does_not_touch_operator_db(tmp_path, request):
     from tests.harness import cleanup_sqlite_files, isolated_sqlite_path
 
-    operator_db = ROOT / "data" / "clear.db"
+    operator_db = ROOT / "data" / "lotbook.db"
+    legacy_db = ROOT / "data" / "clear.db"
     existed = operator_db.exists()
+    legacy_existed = legacy_db.exists()
     mtime = operator_db.stat().st_mtime if existed else None
+    legacy_mtime = legacy_db.stat().st_mtime if legacy_existed else None
     db_path = isolated_sqlite_path(request, "probe.db", runtime_dir=tmp_path)
     assert db_path.parent.exists()
     cleanup_sqlite_files(db_path, remove_dir=True)
@@ -72,3 +75,7 @@ def test_isolated_harness_does_not_touch_operator_db(tmp_path, request):
         assert operator_db.stat().st_mtime == mtime
     else:
         assert not operator_db.exists()
+    if legacy_existed:
+        assert legacy_db.stat().st_mtime == legacy_mtime
+    else:
+        assert not legacy_db.exists()
