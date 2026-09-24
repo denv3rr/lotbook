@@ -7,11 +7,13 @@ so a stale editor cannot overwrite a concurrent cash or lot change.
 """
 from __future__ import annotations
 
+from contextvars import ContextVar
 from datetime import datetime, timezone
 from decimal import Decimal, InvalidOperation, ROUND_HALF_EVEN, localcontext
 import hashlib
 import json
-from typing import Any, Literal
+import logging
+from typing import Any, Literal, NoReturn
 
 from pydantic import BaseModel, ConfigDict, Field, StrictBool, field_validator, model_validator
 
@@ -19,6 +21,21 @@ from modules.client_mgr.holdings import normalize_ticker
 
 
 QUANTUM = Decimal("0.00000001")
+LOGGER = logging.getLogger(__name__)
+_PREPARED_ROW_MESSAGE: ContextVar[str | None] = ContextVar("lotbook_prepared_row_message", default=None)
+_GENERIC_ROW_MESSAGE = "This row could not be applied."
+
+
+def _reject(message: str) -> NoReturn:
+    """Remember the operator sentence, then raise ValueError.
+
+    Import preview copies the remembered sentence into the response. It does
+    not read the exception, because that object carries a traceback.
+    """
+    _PREPARED_ROW_MESSAGE.set(message)
+    raise ValueError(message)
+
+
 LEDGER_KINDS = (
     "buy",
     "sell",
@@ -38,13 +55,13 @@ LEDGER_KINDS = (
 
 def decimal_value(value: Any) -> Decimal:
     if isinstance(value, bool):
-        raise ValueError("A numeric amount is required.")
+        _reject("A numeric amount is required.")
     try:
         number = Decimal(str(value))
-    except (InvalidOperation, ValueError) as failure:
-        raise ValueError("A finite numeric amount is required.") from failure
+    except (InvalidOperation, ValueError):
+        _reject("A finite numeric amount is required.")
     if not number.is_finite():
-        raise ValueError("A finite numeric amount is required.")
+        _reject("A finite numeric amount is required.")
     return number
 
 
@@ -56,7 +73,7 @@ def money_text(value: Decimal) -> str:
 def json_amount(value: Decimal) -> float:
     encoded = float(value)
     if not value.is_finite():
-        raise ValueError("Amount is outside the supported numeric range.")
+        _reject("Amount is outside the supported numeric range.")
     return encoded
 
 
@@ -79,10 +96,10 @@ class PositionLot(BaseModel):
             return value
         try:
             parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
-        except ValueError as failure:
-            raise ValueError("Use an ISO acquisition date or UNKNOWN.") from failure
+        except ValueError:
+            _reject("Use an ISO acquisition date or UNKNOWN.")
         if parsed.date() > datetime.now(timezone.utc).date():
-            raise ValueError("An acquisition date cannot be in the future.")
+            _reject("An acquisition date cannot be in the future.")
         return value
 
 
@@ -111,17 +128,17 @@ class PositionWrite(BaseModel):
     @classmethod
     def evidence(cls, value):
         if not value.strip():
-            raise ValueError("Record the source or reason for this correction.")
+            _reject("Record the source or reason for this correction.")
         return value.strip()
 
     @model_validator(mode="after")
     def mode_fields(self):
         if self.mode == "quantity" and (self.quantity is None or self.lots):
-            raise ValueError("Quantity mode requires a total quantity and no lots.")
+            _reject("Quantity mode requires a total quantity and no lots.")
         if self.mode == "lots" and (not self.lots or self.quantity is not None):
-            raise ValueError("Lot mode requires at least one lot and derives quantity from lots.")
+            _reject("Lot mode requires at least one lot and derives quantity from lots.")
         if self.mode == "delete" and (not self.confirm or self.lots or self.quantity is not None):
-            raise ValueError("Removal requires explicit confirmation and no replacement values.")
+            _reject("Removal requires explicit confirmation and no replacement values.")
         return self
 
 
@@ -142,13 +159,13 @@ class CashWrite(BaseModel):
     @classmethod
     def evidence(cls, value):
         if not value.strip():
-            raise ValueError("Record the source or reason for this cash correction.")
+            _reject("Record the source or reason for this cash correction.")
         return value.strip()
 
     @model_validator(mode="after")
     def confirmed_negative(self):
         if self.amount < 0 and not self.confirm:
-            raise ValueError("A negative cash balance requires explicit confirmation.")
+            _reject("A negative cash balance requires explicit confirmation.")
         return self
 
 
@@ -197,31 +214,31 @@ class LedgerWrite(BaseModel):
         value = value.strip()
         try:
             parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
-        except ValueError as failure:
-            raise ValueError("Use an ISO date and time for the event.") from failure
+        except ValueError:
+            _reject("Use an ISO date and time for the event.")
         if parsed.date() > datetime.now(timezone.utc).date():
-            raise ValueError("An event date cannot be in the future.")
+            _reject("An event date cannot be in the future.")
         return value
 
     @field_validator("source_note")
     @classmethod
     def evidence(cls, value):
         if not value.strip():
-            raise ValueError("Record the source or reason for this transaction.")
+            _reject("Record the source or reason for this transaction.")
         return value.strip()
 
     @model_validator(mode="after")
     def kind_fields(self):
         if self.kind in {"buy", "sell", "split", "spinoff", "merger"} and not self.ticker:
-            raise ValueError("Security events require a ticker.")
+            _reject("Security events require a ticker.")
         if self.kind in {"buy", "sell"} and (self.quantity is None or self.quantity <= 0 or self.unit_price is None or self.unit_price < 0):
-            raise ValueError("Buys and sells require a positive quantity and a non-negative unit price.")
+            _reject("Buys and sells require a positive quantity and a non-negative unit price.")
         if self.kind == "split" and (self.quantity is None or self.quantity <= 0):
-            raise ValueError("A split factor must be a positive number (for example 2 for a 2-for-1).")
+            _reject("A split factor must be a positive number (for example 2 for a 2-for-1).")
         if self.kind in {"deposit", "transfer_in", "dividend", "interest"} and (self.cash_amount is None or self.cash_amount <= 0):
-            raise ValueError("Inflows require a positive cash amount.")
+            _reject("Inflows require a positive cash amount.")
         if self.kind in {"withdrawal", "transfer_out", "fee"} and (self.cash_amount is None or self.cash_amount == 0) and self.fee_amount == 0:
-            raise ValueError("Outflows require a non-zero cash or fee amount.")
+            _reject("Outflows require a non-zero cash or fee amount.")
         return self
 
 
@@ -264,7 +281,7 @@ class ImportRow(BaseModel):
     @classmethod
     def evidence(cls, value):
         if not value.strip():
-            raise ValueError("Each imported row needs a source or reason.")
+            _reject("Each imported row needs a source or reason.")
         return value.strip()
 
 
@@ -280,7 +297,7 @@ def normalized_map(value: dict | None) -> dict:
     for key, row in (value or {}).items():
         ticker = normalize_ticker(key)
         if not ticker or ticker in result:
-            raise ValueError("Ambiguous ticker keys require reconciliation before editing.")
+            _reject("Ambiguous ticker keys require reconciliation before editing.")
         result[ticker] = row
     return result
 
@@ -289,11 +306,11 @@ def cash_map(extra: dict | None) -> dict[str, Decimal]:
     balances = {}
     raw = (extra or {}).get("cash_balances") or {}
     if not isinstance(raw, dict):
-        raise ValueError("Cash balances are unreadable and must be reconciled before editing.")
+        _reject("Cash balances are unreadable and must be reconciled before editing.")
     for currency, amount in raw.items():
         code = str(currency or "").strip().upper()
         if len(code) != 3 or not code.isalpha():
-            raise ValueError("Cash balances use ISO-4217 currency codes.")
+            _reject("Cash balances use ISO-4217 currency codes.")
         balances[code] = decimal_value(amount)
     return balances
 
@@ -379,18 +396,18 @@ def apply_position(holdings, lots, extra, command: PositionWrite):
     ticker = command.ticker
     if command.mode == "delete":
         if ticker not in holdings and ticker not in lots:
-            raise ValueError("Position does not exist.")
+            _reject("Position does not exist.")
         holdings.pop(ticker, None)
         lots.pop(ticker, None)
     elif command.mode == "quantity":
         if lots.get(ticker) and not command.confirm:
-            raise ValueError("Replacing lot history with a total quantity requires explicit confirmation.")
+            _reject("Replacing lot history with a total quantity requires explicit confirmation.")
         holdings[ticker] = json_amount(command.quantity)
         lots.pop(ticker, None)
     else:
         quantity = sum((lot.qty for lot in command.lots), Decimal(0))
         if quantity > Decimal("1000000000"):
-            raise ValueError("Total lot quantity exceeds the supported limit.")
+            _reject("Total lot quantity exceeds the supported limit.")
         holdings[ticker] = json_amount(quantity)
         lots[ticker] = [stored_lot(lot) for lot in command.lots]
     details = dict(extra.get("position_details", {}))
@@ -434,7 +451,7 @@ def _reduce_lots(entries: list[dict], quantity: Decimal, indices: list[int] | No
         if to_sell <= 0:
             break
         if index < 0 or index >= len(remaining):
-            raise ValueError("A specified lot index is out of range.")
+            _reject("A specified lot index is out of range.")
         lot = remaining[index]
         available = decimal_value(lot.get("qty", 0))
         if available <= 0:
@@ -448,7 +465,7 @@ def _reduce_lots(entries: list[dict], quantity: Decimal, indices: list[int] | No
         else:
             remaining[index] = {**lot, "qty": json_amount(leftover)}
     if to_sell > 0:
-        raise ValueError("Sell quantity exceeds remaining lots.")
+        _reject("Sell quantity exceeds remaining lots.")
     kept = [lot for lot in remaining if lot is not None]
     return kept, allocated_basis
 
@@ -470,9 +487,9 @@ def apply_ledger(holdings, lots, extra, command: LedgerWrite):
             proceeds = command.quantity * command.unit_price
             cash_delta = -(proceeds + fee) if cash_delta is None else cash_delta
             if cash_delta >= 0:
-                raise ValueError("A buy must reduce cash.")
+                _reject("A buy must reduce cash.")
             if cash + cash_delta < 0 and not command.confirm:
-                raise ValueError("This buy would overdraw recorded cash. Confirm if that is an explicit correction.")
+                _reject("This buy would overdraw recorded cash. Confirm if that is an explicit correction.")
             entries = list(lots.get(ticker) or [])
             entries.append({
                 "qty": json_amount(command.quantity),
@@ -488,7 +505,7 @@ def apply_ledger(holdings, lots, extra, command: LedgerWrite):
             cash_delta = proceeds - fee if cash_delta is None else cash_delta
             entries = list(lots.get(ticker) or [])
             if not entries:
-                raise ValueError("A sell requires lot history so realized P&L can be allocated.")
+                _reject("A sell requires lot history so realized P&L can be allocated.")
             kept, allocated_basis = _reduce_lots(entries, command.quantity, command.lot_indices or None)
             realized = cash_delta - allocated_basis
             if kept:
@@ -501,7 +518,7 @@ def apply_ledger(holdings, lots, extra, command: LedgerWrite):
             factor = command.quantity
             entries = list(lots.get(ticker) or [])
             if not entries:
-                raise ValueError("A split requires lot history.")
+                _reject("A split requires lot history.")
             lots[ticker] = [
                 {**lot, "qty": json_amount(decimal_value(lot["qty"]) * factor), "basis": json_amount(decimal_value(lot["basis"]) / factor)}
                 for lot in entries
@@ -513,18 +530,18 @@ def apply_ledger(holdings, lots, extra, command: LedgerWrite):
         elif command.kind in {"withdrawal", "transfer_out"}:
             cash_delta = -abs(command.cash_amount)
             if cash + cash_delta < 0 and not command.confirm:
-                raise ValueError("This outflow would overdraw recorded cash. Confirm if that is an explicit correction.")
+                _reject("This outflow would overdraw recorded cash. Confirm if that is an explicit correction.")
         elif command.kind == "fee":
             cash_delta = -(abs(command.cash_amount) if command.cash_amount else fee)
             if cash + cash_delta < 0 and not command.confirm:
-                raise ValueError("This fee would overdraw recorded cash. Confirm if that is an explicit correction.")
+                _reject("This fee would overdraw recorded cash. Confirm if that is an explicit correction.")
         elif command.kind == "cash_correction":
             if cash_delta is None:
-                raise ValueError("A cash correction requires the signed cash amount.")
+                _reject("A cash correction requires the signed cash amount.")
         elif command.kind in {"spinoff", "merger"}:
-            raise ValueError("Spin-off and merger events require a reviewed corporate-action template in a later release.")
+            _reject("Spin-off and merger events require a reviewed corporate-action template in a later release.")
         else:
-            raise ValueError("Unsupported ledger event.")
+            _reject("Unsupported ledger event.")
 
         cash_delta = Decimal(0) if cash_delta is None else cash_delta
         balances[currency] = cash + cash_delta
@@ -549,27 +566,37 @@ def preview_import(holdings, lots, extra, rows: list[ImportRow]) -> dict:
     applied = []
     errors = []
     for index, row in enumerate(rows):
-        command = LedgerWrite(
-            expected_revision="0" * 64,
-            occurred_at=row.occurred_at,
-            kind=row.kind,
-            ticker=row.ticker,
-            quantity=row.quantity,
-            unit_price=row.unit_price,
-            cash_amount=row.cash_amount,
-            currency=row.currency,
-            fee_amount=row.fee_amount,
-            source_note=row.source_note,
-            confirm=row.confirm,
-        )
+        token = _PREPARED_ROW_MESSAGE.set(None)
         try:
-            current_holdings, current_lots, current_extra, event = apply_ledger(
-                current_holdings, current_lots, current_extra, command
+            command = LedgerWrite(
+                expected_revision="0" * 64,
+                occurred_at=row.occurred_at,
+                kind=row.kind,
+                ticker=row.ticker,
+                quantity=row.quantity,
+                unit_price=row.unit_price,
+                cash_amount=row.cash_amount,
+                currency=row.currency,
+                fee_amount=row.fee_amount,
+                source_note=row.source_note,
+                confirm=row.confirm,
             )
-            applied.append({"index": index, **event})
-        except (ValueError, KeyError, TypeError) as failure:
-            errors.append({"index": index, "message": str(failure)})
-            break
+            try:
+                current_holdings, current_lots, current_extra, event = apply_ledger(
+                    current_holdings, current_lots, current_extra, command
+                )
+                applied.append({"index": index, **event})
+            except (ValueError, KeyError, TypeError):
+                prepared = _PREPARED_ROW_MESSAGE.get()
+                if isinstance(prepared, str) and prepared:
+                    message = prepared
+                else:
+                    LOGGER.exception("Import row %s could not be applied.", index)
+                    message = _GENERIC_ROW_MESSAGE
+                errors.append({"index": index, "message": message})
+                break
+        finally:
+            _PREPARED_ROW_MESSAGE.reset(token)
     return {
         "applied_count": len(applied),
         "error_count": len(errors),

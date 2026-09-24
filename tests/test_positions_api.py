@@ -112,5 +112,27 @@ def test_cash_transaction_import_preview_and_auth(api):
     assert preview.status_code == 200
     assert preview.json()["would_write"] is True
     assert buy.json()["cash"][0]["amount"].startswith("800")
+    rejected = api.post(
+        f"/api/clients/{client_id}/accounts/{account_id}/transactions/import",
+        json={
+            "expected_revision": buy.json()["revision"],
+            "confirm": False,
+            "rows": [
+                {
+                    "occurred_at": "2024-03-02T00:00:00",
+                    "kind": "buy",
+                    "ticker": "AAPL",
+                    "quantity": "100",
+                    "unit_price": "1000",
+                    "currency": "USD",
+                    "source_note": "Too large for recorded cash.",
+                }
+            ],
+        },
+    )
+    assert rejected.status_code == 200
+    assert "Traceback" not in rejected.text
+    assert "ValueError" not in rejected.text
+    assert rejected.json()["errors"][0]["message"] == "This buy would overdraw recorded cash. Confirm if that is an explicit correction."
     denied = api.get(f"/api/clients/{client_id}/positions", headers={"X-API-Key": "invalid"})
     assert denied.status_code == 401

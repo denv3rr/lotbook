@@ -133,6 +133,28 @@ def test_import_preview_does_not_need_write_and_stops_on_error():
     assert preview["error_count"] == 1
     assert preview["would_write"] is False
     assert preview["errors"][0]["index"] == 2
+    assert preview["errors"][0]["message"] == "This buy would overdraw recorded cash. Confirm if that is an explicit correction."
+    assert "Traceback" not in preview["errors"][0]["message"]
+
+
+def test_import_preview_hides_internal_exception_text(monkeypatch):
+    def explode(*_args, **_kwargs):
+        raise KeyError("qty")
+
+    monkeypatch.setattr("modules.client_mgr.positions.apply_ledger", explode)
+    row = ImportRow(
+        occurred_at="2024-01-01T00:00:00",
+        kind="deposit",
+        cash_amount="10",
+        currency="USD",
+        source_note="Row that fails inside the book update.",
+    )
+    preview = preview_import({}, {}, {}, [row])
+    message = preview["errors"][0]["message"]
+    assert message == "This row could not be applied."
+    assert "qty" not in message
+    assert "Traceback" not in message
+    assert "KeyError" not in message
 
 
 def test_revision_changes_when_unrelated_cash_changes():
