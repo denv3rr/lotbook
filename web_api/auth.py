@@ -21,9 +21,8 @@ def _expected_api_key() -> str:
         return expected
     if not _UNSET_KEY_WARNED:
         LOGGER.warning(
-            "%s is unset; API and WebSocket auth are open. "
+            "LOTBOOK_WEB_API_KEY is unset; API and WebSocket auth are open. "
             "Set a key for any shared or public deployment.",
-            WEB_API_KEY_ENV,
         )
         _UNSET_KEY_WARNED = True
     return ""

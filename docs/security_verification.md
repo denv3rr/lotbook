@@ -38,6 +38,10 @@ CodeQL follow-up on PRs 14 and 31:
 - Route handlers no longer interpolate exception objects into API warnings.
   Failures are logged server-side and the client sees a generic unavailable
   message.
+- CodeQL alerts 14 and 15: import preview returns a prepared operator
+  sentence, or a generic row message, and does not read the caught exception.
+  Unexpected row failures are logged on the server. The unset-key warning
+  names `LOTBOOK_WEB_API_KEY` in a fixed sentence and does not log the key.
 
 Out of scope:
 

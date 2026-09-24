@@ -1,7 +1,10 @@
+import logging
+
 import pytest
 from fastapi.testclient import TestClient
 from starlette.websockets import WebSocketDisconnect
 
+from web_api import auth
 from web_api.auth import _keys_match
 from web_api.app import app
 from web_api import summarizer as assistant_summarizer
@@ -28,6 +31,33 @@ def test_keys_match_accepts_identical_nonempty_values():
 def test_keys_match_rejects_mismatched_values():
     assert _keys_match("alpha-key", "beta-key") is False
     assert _keys_match("short", "longer-value") is False
+
+
+def test_unset_web_api_key_warning_does_not_include_a_secret(monkeypatch, caplog):
+    monkeypatch.delenv("LOTBOOK_WEB_API_KEY", raising=False)
+    monkeypatch.delenv("CLEAR_WEB_API_KEY", raising=False)
+    previous = auth._UNSET_KEY_WARNED
+    auth._UNSET_KEY_WARNED = False
+    try:
+        with caplog.at_level(logging.WARNING, logger="web_api.auth"):
+            assert auth._expected_api_key() == ""
+    finally:
+        auth._UNSET_KEY_WARNED = previous
+    assert "LOTBOOK_WEB_API_KEY is unset" in caplog.text
+    assert "super-secret-value" not in caplog.text
+
+
+def test_configured_web_api_key_is_not_written_to_the_log(monkeypatch, caplog):
+    monkeypatch.setenv("LOTBOOK_WEB_API_KEY", "super-secret-value")
+    monkeypatch.delenv("CLEAR_WEB_API_KEY", raising=False)
+    previous = auth._UNSET_KEY_WARNED
+    auth._UNSET_KEY_WARNED = False
+    try:
+        with caplog.at_level(logging.DEBUG, logger="web_api.auth"):
+            assert auth._expected_api_key() == "super-secret-value"
+    finally:
+        auth._UNSET_KEY_WARNED = previous
+    assert "super-secret-value" not in caplog.text
 
 
 def test_keys_match_rejects_empty_or_missing_values():
