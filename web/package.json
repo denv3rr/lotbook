@@ -18,30 +18,30 @@
     "test:clean": "node -e \"require('fs').rmSync('test-results',{recursive:true,force:true});require('fs').rmSync('playwright-report',{recursive:true,force:true});\""
   },
   "dependencies": {
-    "framer-motion": "^13.2.0",
+    "framer-motion": "^13.4.2",
     "leaflet": "^1.9.4",
-    "lucide-react": "^1.43.0",
-    "maplibre-gl": "^6.9.0",
-    "plotly.js-gl3d-dist-min": "^4.1.0",
-    "react": "^19.2.8",
-    "react-dom": "^19.2.8",
+    "lucide-react": "^1.47.0",
+    "maplibre-gl": "^6.11.1",
+    "plotly.js-gl3d-dist-min": "^4.1.1",
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0",
     "react-markdown": "^10.1.0",
     "react-plotly.js": "^4.1.0",
-    "react-router-dom": "^7.18.3",
+    "react-router-dom": "^7.18.4",
     "recharts": "^3.10.1",
     "remark-gfm": "^4.0.0"
   },
   "devDependencies": {
     "@playwright/test": "^1.63.0",
     "@tailwindcss/postcss": "^4.3.3",
-    "@types/react": "^19.2.18",
-    "@types/react-dom": "^19.2.7",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
     "@vitejs/plugin-react": "^6.1.1",
-    "autoprefixer": "^10.5.5",
+    "autoprefixer": "^10.6.1",
     "postcss": "^8.5.28",
     "tailwindcss": "^4.1.18",
     "typescript": "^7.0.2",
-    "vite": "^8.2.2"
+    "vite": "^8.3.0"
   },
   "overrides": {
     "protocol-buffers-schema": "3.6.1",
