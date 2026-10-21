@@ -41,7 +41,7 @@
     "postcss": "^8.5.28",
     "tailwindcss": "^4.1.18",
     "typescript": "^7.0.2",
-    "vite": "^8.2.2"
+    "vite": "^8.3.4"
   },
   "overrides": {
     "protocol-buffers-schema": "3.6.1",
