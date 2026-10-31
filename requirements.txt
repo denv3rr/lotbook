@@ -9,7 +9,7 @@ requests==2.34.2
 psutil==7.2.2
 PySide6; python_version < "3.14"
 PySide6-WebEngine; python_version < "3.14"
-pytest==9.1.1
+pytest==9.2.0
 fastapi==0.141.1
 uvicorn==0.52.4
 httpx==0.28.1
